@@ -257,7 +257,8 @@ generator, which turns "why this model" from an opinion into a measurement. It
 is not answered here, and the reason is worth recording rather than hiding.
 
 Both attempts hit exhausted free-tier daily quotas, not per-minute limits that
-patience could absorb:
+patience could absorb. Quotas and availability as observed on 27 August 2026, on
+one free-tier key; all three are the provider's to change without notice:
 
 | model                 | free-tier daily cap | outcome                                                    |
 |-----------------------|---------------------|------------------------------------------------------------|
@@ -399,6 +400,13 @@ predicting behaviour on that.
 - `chromadb` — the alternative vector store
 - `rank-bm25` — BM25 Okapi
 - `pyyaml`, `python-dotenv`, `pytest`
+
+Both model names were live and verified against the API on 27 August 2026. CI
+runs without an API key, so it cannot notice a model being renamed or retired --
+`gemini-2.5-flash-lite` had already gone that way by this date, returning 404
+with the name of its successor. If generation or indexing starts failing with a
+404, check the model names against `client.models.list()` before looking
+anywhere else.
 
 No retrieval framework. 85 tests, none of which touch the network.
 
