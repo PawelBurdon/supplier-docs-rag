@@ -1,0 +1,159 @@
+# Golden set for supplier-docs-rag.
+#
+# Each entry is one question with the documents that should be retrieved, the
+# facts a correct answer must contain, and a type.
+#
+# Types:
+#   factual       - the answer sits in one document
+#   multi_hop     - the answer requires combining two documents; neither alone
+#                   is sufficient, which is the point
+#   contradiction - two documents give different answers and both must be shown
+#   unanswerable  - no document contains the answer; the system must refuse
+#
+# Fields:
+#   expected_documents - doc_ids (file stems). Retrieval metrics are computed
+#                        against these. Empty for unanswerable questions, which
+#                        are therefore excluded from recall and MRR: there is no
+#                        correct document to retrieve, so a retrieval score would
+#                        be meaningless rather than zero.
+#   expected_facts     - strings a correct answer must contain, matched case
+#                        insensitively. A crude proxy for answer quality with no
+#                        judge model involved: it catches a wrong figure, it does
+#                        not catch bad reasoning around a right one.
+#   expected_answer    - human-readable, for the report. Not asserted on.
+
+- id: q01
+  type: factual
+  question: What are the standard payment terms under framework agreement HCS-FA-2024-011?
+  expected_documents: [supplier_framework_agreement]
+  expected_facts: ["45"]
+  expected_answer: Net 45 days from the date of a valid invoice, with a 2 percent discount for payment within 10 days.
+
+- id: q02
+  type: factual
+  question: How long is the warranty on carbon frame sets?
+  expected_documents: [returns_and_warranty_policy]
+  expected_facts: ["36 months"]
+  expected_answer: 36 months from the date of the distributor's invoice to the trade customer.
+
+- id: q03
+  type: factual
+  question: What acceptance quality limit applies to major defects at incoming inspection?
+  expected_documents: [quality_inspection_procedure]
+  expected_facts: ["1.0"]
+  expected_answer: AQL 1.0 for major defects, under ISO 2859-1 general inspection level II.
+
+- id: q04
+  type: factual
+  question: How many days does a customer have to ship goods after an RMA number is issued?
+  expected_documents: [returns_and_warranty_policy]
+  expected_facts: ["14"]
+  expected_answer: 14 calendar days, after which the RMA number expires and must be re-requested.
+
+- id: q05
+  type: factual
+  question: Which Incoterms apply to deliveries from Pedalworks Manufacturing?
+  expected_documents: [onboarding_pedalworks_manufacturing]
+  expected_facts: ["FCA"]
+  expected_answer: FCA Taichung (Incoterms 2020); risk passes at the Taichung freight forwarder.
+
+- id: q06
+  type: factual
+  question: What is the on-time in-full target for Tier 3 suppliers?
+  expected_documents: [delivery_sla]
+  expected_facts: ["90"]
+  expected_answer: 90 percent OTIF per calendar quarter, against 96 percent for Tier 1 and Tier 2.
+
+- id: q07
+  type: factual
+  # A code lookup rather than a topic search: the kind of query dense retrieval
+  # is worst at and BM25 is best at.
+  question: Under HCS-QIP-2023, what must a supplier provide within 15 business days of a non-conformance report?
+  expected_documents: [quality_inspection_procedure]
+  expected_facts: ["root cause"]
+  expected_answer: A root cause analysis; a containment action is due within 5 business days.
+
+- id: q08
+  type: multi_hop
+  # The onboarding record gives the tier and the SLA gives the lead time for that
+  # tier. Neither document contains the answer on its own.
+  question: What lead time applies to a carbon frame set ordered from Velocore Components?
+  expected_documents: [onboarding_velocore_components, delivery_sla]
+  expected_facts: ["35"]
+  expected_answer: 35 calendar days. Velocore is a Tier 2 supplier and the Tier 2 lead time for FRM-CRB carbon frame sets is 35 days.
+
+- id: q09
+  type: multi_hop
+  question: A Pedalworks cassette order arrives four days late in March 2026. Does a late delivery penalty apply?
+  expected_documents: [onboarding_pedalworks_manufacturing, delivery_sla]
+  expected_facts: ["0.5"]
+  expected_answer: Yes. The 90-day penalty waiver granted at onboarding expired on 14 December 2025, so the standard SLA penalty of 0.5 percent of order value per calendar day applies.
+
+- id: q10
+  type: multi_hop
+  question: Can we order carbon forks from Velocore Components?
+  expected_documents: [onboarding_velocore_components, supplier_framework_agreement]
+  expected_facts: ["not approved", "scope"]
+  expected_answer: No. FRK-CRB carbon forks are not an approved SKU family for Velocore, and extending scope requires a written extension signed by both parties, not an email from the buyer.
+
+- id: q11
+  type: multi_hop
+  question: What happens if a supplier's lots fail incoming inspection three times within six months?
+  expected_documents: [supplier_framework_agreement, quality_inspection_procedure]
+  expected_facts: ["100 percent"]
+  expected_answer: The distributor may require 100 percent inspection at the supplier's cost; inspection severity also tightens after two rejected lots in a rolling six-month period.
+
+- id: q12
+  type: contradiction
+  question: What penalty do we charge a supplier for a late delivery?
+  expected_documents: [delivery_sla, internal_faq_procurement]
+  expected_facts: ["0.5", "1 percent"]
+  expected_answer: The sources disagree. The Delivery SLA states 0.5 percent of order value per calendar day capped at 10 percent; the internal FAQ states 1 percent per day capped at 15 percent. The SLA is the contractual document and the FAQ says so itself.
+
+- id: q13
+  type: contradiction
+  question: What restocking fee applies to a commercial return?
+  expected_documents: [returns_and_warranty_policy, internal_faq_procurement]
+  expected_facts: ["15 percent", "10 percent"]
+  expected_answer: The sources disagree. The Returns and Warranty Policy states 15 percent of invoice value; the internal FAQ states 10 percent.
+
+- id: q14
+  type: contradiction
+  question: How long do we have to notify a supplier of a late delivery penalty?
+  expected_documents: [delivery_sla, internal_faq_procurement]
+  expected_facts: ["30", "60"]
+  expected_answer: The sources disagree. The Delivery SLA requires written notice within 30 days of the late delivery; the internal FAQ says 60 days.
+
+- id: q15
+  type: unanswerable
+  # The hardest kind of refusal: retrieval finds a passage on exactly this topic,
+  # and that passage says the answer is elsewhere.
+  question: What is our freight insurance coverage limit per shipment?
+  expected_documents: []
+  expected_facts: []
+  expected_answer: Not stated in any document. The internal FAQ lists it as a question it cannot answer.
+
+- id: q16
+  type: unanswerable
+  question: What surcharge applies to air freight shipments?
+  expected_documents: []
+  expected_facts: []
+  expected_answer: Not stated. The SLA defines an 8 percent expedite surcharge, which is not the same thing as an air freight surcharge.
+
+- id: q17
+  type: unanswerable
+  # A trap: one supplier has a minimum order value, so a plausible answer exists
+  # in the corpus for the wrong supplier.
+  question: What is the minimum order value for purchase orders to Velocore Components?
+  expected_documents: []
+  expected_facts: []
+  expected_answer: Not stated. Only the Pedalworks record sets a minimum order value (USD 15,000).
+
+- id: q18
+  type: unanswerable
+  # A trap with the right shape: the record has a quarterly OTIF table, but it
+  # stops one quarter before the quarter asked about.
+  question: What was Velocore's on-time in-full performance in the second quarter of 2026?
+  expected_documents: []
+  expected_facts: []
+  expected_answer: Not stated. The Velocore record reports OTIF up to 2026 Q1 only.

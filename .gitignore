@@ -1,0 +1,26 @@
+# Secrets
+.env
+*.key
+
+# Generated indexes and stores
+.cache/
+index/
+chroma/
+
+# embedding_cache/ is deliberately NOT ignored. It is committed so that the
+# retrieval metrics run in CI, and reproduce for anyone who clones this
+# repository, without an API key.
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

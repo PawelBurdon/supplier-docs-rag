@@ -1,0 +1,8 @@
+# Normalise line endings in the repository. The embedding cache is keyed on a
+# hash of chunk text, so a document checked out with CRLF on Windows and LF on
+# Linux must still hash identically. The loader also normalises at read time;
+# this keeps the stored form canonical as well.
+* text=auto eol=lf
+
+# Cached embeddings are binary and must never be line-ending converted.
+*.npy binary

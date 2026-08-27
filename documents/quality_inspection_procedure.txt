@@ -1,0 +1,97 @@
+QUALITY INSPECTION PROCEDURE
+Document reference: HCS-QIP-2023
+Owner: Halden Cycle Supply B.V., Warehouse Quality
+Version 1.4, revised 22 August 2023
+
+1. PURPOSE AND SCOPE
+
+This procedure describes incoming goods inspection at the Rotterdam warehouse.
+It applies to every inbound lot from every supplier, including consignment
+stock and free-of-charge warranty replacements. It also applies to goods
+returned under the Returns and Warranty Policy (HCS-RWP-2025), where it is used
+to decide whether a claim is valid.
+
+2. DEFINITIONS
+
+Lot: the quantity of a single SKU received against a single delivery note.
+Critical defect: a defect that could reasonably cause injury in normal use, for
+  example a weld crack, a delaminated carbon layup, or a missing safety washer.
+Major defect: a defect that renders the unit unsaleable but is not a safety
+  risk, for example a bent derailleur hanger or a mismatched paint batch.
+Minor defect: a cosmetic issue that does not prevent sale at full price.
+
+3. SAMPLING PLAN
+
+Sampling follows ISO 2859-1, general inspection level II, single sampling,
+normal severity. Acceptance quality limits are:
+
+  Critical defects: AQL 0.0 - a single critical defect rejects the lot.
+  Major defects:    AQL 1.0
+  Minor defects:    AQL 2.5
+
+Lot size to sample size, level II:
+  51 to 90 units        sample 13
+  91 to 150 units       sample 20
+  151 to 280 units      sample 32
+  281 to 500 units      sample 50
+  501 to 1200 units     sample 80
+
+Severity is tightened to ISO 2859-1 tightened inspection after two rejected
+lots from the same supplier within any rolling six-month period, and returns to
+normal after five consecutive accepted lots.
+
+4. INSPECTION STEPS
+
+4.1 Documentation check. Confirm the delivery note references a valid purchase
+order number and that the SKU codes match. A delivery note without a purchase
+order number is quarantined, not rejected, and the category buyer is notified
+the same day.
+
+4.2 Packaging check. Confirm outer cartons are undamaged and that units are
+individually protected. Transit damage is photographed before unpacking.
+
+4.3 Identification check. Confirm each sampled unit carries a legible serial
+number and that the lot number on the carton matches the delivery note. Lot
+numbers are recorded in the warehouse system and are the link used for supplier
+recovery of warranty costs.
+
+4.4 Dimensional check. Measure head tube angle, seat tube length and bottom
+bracket shell width on each sampled frame against the drawing in Schedule A of
+the relevant framework agreement. Tolerance is plus or minus 0.5 degrees on
+angles and plus or minus 0.3 millimetres on lengths.
+
+4.5 Thread and interface check. Verify bottom bracket and derailleur hanger
+threads with a go/no-go gauge. Verify that the fork steerer diameter matches
+the specification for the SKU.
+
+4.6 Torque verification. On two units per lot, tighten the derailleur hanger
+bolt to the printed specification with a calibrated torque wrench and confirm
+no thread deformation. Torque wrenches are calibrated every 6 months and the
+calibration certificate is kept for 3 years.
+
+4.7 Carbon lot check. For FRM-CRB and FRK-CRB lots, tap-test the head tube and
+bottom bracket junctions of every sampled unit. Any dull response escalates to
+ultrasonic inspection by the external laboratory before the lot is released.
+
+5. DISPOSITION
+
+Accepted lots are booked into sellable stock the same working day.
+Rejected lots are moved to the quarantine area and are not booked into stock.
+Quality Assurance raises a non-conformance report within 2 business days,
+containing photographs, the sampling record, and the defect classification.
+
+The supplier must respond with a containment action within 5 business days and
+a root cause analysis within 15 business days. Failure to respond within these
+windows is treated as acceptance of the rejection.
+
+Rejected lots are returned at the supplier's cost, or scrapped at the
+supplier's cost where return freight would exceed the lot value. The
+Distributor does not rework supplier goods without written agreement and an
+agreed rework rate.
+
+6. RECORDS
+
+Inspection records are retained for 7 years. Records include the sampling
+record, defect classification, photographs, the inspector's identity, and the
+disposition decision. Records are auditable by the supplier on 10 business
+days' notice.

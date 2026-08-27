@@ -1,0 +1,31 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Unit tests
+        run: python -m pytest tests -q
+
+      # No API key. This runs against the embedding cache committed in
+      # embedding_cache/, so the retrieval metrics are reproducible here and on
+      # any clone. If a document or a golden set question changes without the
+      # cache being rebuilt, the embedder raises rather than quietly skipping
+      # the affected question, and this step fails.
+      - name: Retrieval metrics (offline)
+        run: python -m src.main eval --retrieval-only

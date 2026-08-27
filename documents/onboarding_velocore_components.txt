@@ -1,0 +1,85 @@
+SUPPLIER ONBOARDING RECORD
+Record reference: HCS-ONB-2024-007
+Supplier: Velocore Components GmbH
+Status: Active
+Onboarded: 1 March 2024
+Last review: 4 February 2026
+Next review due: February 2027
+
+1. SUPPLIER IDENTITY
+
+Legal name:        Velocore Components GmbH
+Registered office: Ingolstadt, Germany
+VAT number:        DE288114003
+Primary plant:     Ingolstadt (frame welding, paint, assembly)
+Secondary plant:   Ostrava, Czech Republic (tube preparation only)
+Framework agreement reference: HCS-FA-2024-011
+
+2. COMMERCIAL CLASSIFICATION
+
+Supplier tier:     Tier 2
+Tier rationale:    Committed capacity of 900 frame sets per quarter, rolling
+                   12-week forecast exchanged monthly. Not Tier 1 because no
+                   consignment stock is held in Rotterdam and forecasting is
+                   not systems-integrated.
+Annual spend band: EUR 2.0m to EUR 3.5m
+Category:          Frame sets and forks
+
+Lead times and the on-time delivery target that apply to this supplier are the
+Tier 2 values in the Delivery SLA, document HCS-SLA-2024. They are not restated
+here, so that a tier change does not require this record to be reissued.
+
+3. APPROVED SKU FAMILIES
+
+FRM-ALU-48 through FRM-ALU-60   aluminium frame sets
+FRM-CRB-48 through FRM-CRB-58   carbon frame sets
+FRK-ALU-*                       aluminium forks
+
+Carbon forks (FRK-CRB-*) are NOT approved for this supplier. A scope extension
+was requested in November 2025 and is on hold pending the ultrasonic inspection
+capability audit.
+
+4. COMMERCIAL TERMS
+
+Payment terms:     Net 45 days from valid invoice
+Early settlement:  2 percent discount if paid within 10 days
+Currency:          EUR
+Incoterms:         DAP Rotterdam (Incoterms 2020)
+Price validity:    Fixed until 28 February 2025, annual adjustment thereafter
+                   under clause 3.3 of HCS-FA-2024-011
+Tooling:           Shared 50/50, amortised over first 2,000 units
+
+No deviation from the standard framework agreement terms has been granted to
+this supplier.
+
+5. QUALITY STATUS
+
+Certifications:    ISO 9001:2015, valid to 30 June 2027
+Audit:             On-site audit completed 12 January 2024, score 87/100
+                   Follow-up audit completed 20 January 2026, score 91/100
+Open findings:     One. Torque wrench calibration records at the Ostrava plant
+                   were incomplete. Containment accepted, closure due
+                   30 September 2026.
+Inspection regime: Normal severity, ISO 2859-1 level II, per HCS-QIP-2023
+Rejected lots:     Two in the last 24 months, both FRM-ALU paint batch
+                   mismatches classified as major defects.
+
+6. PERFORMANCE SUMMARY (last four quarters)
+
+  Quarter    OTIF     Target   Warranty claim rate
+  2025 Q2    97.1%    96%      0.4%
+  2025 Q3    96.4%    96%      0.5%
+  2025 Q4    94.2%    96%      0.9%
+  2026 Q1    96.8%    96%      0.6%
+
+The 2025 Q4 miss triggered a level 3 escalation and a joint root-cause review.
+Root cause was a paint line changeover at Ingolstadt. No penalty notice was
+issued for Q4 because each individual late order was settled within its own
+penalty notification window.
+
+7. CONTACTS
+
+Commercial:        A. Brenner, Commercial Director
+Quality:           S. Hartmann, Quality Manager
+Logistics:         Dispatch desk, Ingolstadt plant
+Halden owner:      M. de Vries, Head of Procurement
