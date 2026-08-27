@@ -7,6 +7,7 @@ question scores a perfect refusal accuracy, and only the false refusal rate
 exposes it. There is a test for exactly that.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -52,11 +53,28 @@ class StubRetriever:
 
 def test_golden_set_has_the_planned_shape():
     questions = load_golden_set()
-    assert len(questions) == 18
+    assert len(questions) == 50
     counts: dict[str, int] = {}
     for question in questions:
         counts[question.type] = counts.get(question.type, 0) + 1
-    assert counts == {"factual": 7, "multi_hop": 4, "contradiction": 3, "unanswerable": 4}
+    assert counts == {"factual": 20, "multi_hop": 12, "contradiction": 6, "unanswerable": 12}
+
+
+def test_both_phrasing_styles_are_represented():
+    questions = load_golden_set()
+    styles = {question.phrasing for question in questions}
+    assert styles == {"prose", "code"}
+    code = [question for question in questions if question.phrasing == "code"]
+    assert len(code) >= 10, "too few code-phrased questions to compare the two styles"
+
+
+def test_code_phrased_questions_really_contain_a_code():
+    # The phrasing axis is only meaningful if the label matches the text. A
+    # question tagged "code" that reads like prose would quietly flatter BM25.
+    pattern = re.compile(r"(HCS-[A-Z]{2,4}-\d{4}|[A-Z]{3}-[A-Z]{3}(-\d+)?|clause \d)")
+    for question in load_golden_set():
+        if question.phrasing == "code":
+            assert pattern.search(question.question), f"{question.id} is tagged code but reads as prose"
 
 
 def test_every_expected_document_exists_on_disk():
@@ -96,6 +114,17 @@ def test_duplicate_ids_are_rejected(tmp_path: Path):
     }
     with pytest.raises(ValueError, match="Duplicate"):
         load_golden_set(_write(tmp_path, [entry, dict(entry)]))
+
+
+def test_unknown_phrasing_is_rejected(tmp_path: Path):
+    with pytest.raises(ValueError, match="unknown phrasing"):
+        load_golden_set(
+            _write(
+                tmp_path,
+                [{"id": "x", "type": "factual", "question": "?", "phrasing": "shouty",
+                  "expected_documents": ["delivery_sla"]}],
+            )
+        )
 
 
 def test_unknown_type_is_rejected(tmp_path: Path):

@@ -9,7 +9,8 @@ This procedure describes incoming goods inspection at the Rotterdam warehouse.
 It applies to every inbound lot from every supplier, including consignment
 stock and free-of-charge warranty replacements. It also applies to goods
 returned under the Returns and Warranty Policy (HCS-RWP-2025), where it is used
-to decide whether a claim is valid.
+to decide whether a claim is valid. Returned goods are inspected within 3
+business days of receipt at the warehouse.
 
 2. DEFINITIONS
 

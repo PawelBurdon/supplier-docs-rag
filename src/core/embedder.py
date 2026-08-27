@@ -96,6 +96,15 @@ class Embedder:
         """Embed one question. Returns a (dim,) float32 array."""
         return self._embed([text], QUERY_TASK)[0]
 
+    def embed_queries(self, texts: list[str]) -> np.ndarray:
+        """Embed many questions in one batch.
+
+        Used when warming the committed cache: fifty questions embedded one at a
+        time is fifty requests against a per-minute limit, and the same fifty in
+        one batch is one.
+        """
+        return self._embed(texts, QUERY_TASK)
+
     def _embed(self, texts: list[str], task_type: str) -> np.ndarray:
         if not texts:
             return np.zeros((0, EMBEDDING_DIM), dtype=np.float32)

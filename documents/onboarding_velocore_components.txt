@@ -48,6 +48,7 @@ Incoterms:         DAP Rotterdam (Incoterms 2020)
 Price validity:    Fixed until 28 February 2025, annual adjustment thereafter
                    under clause 3.3 of HCS-FA-2024-011
 Tooling:           Shared 50/50, amortised over first 2,000 units
+Expedite:          5 percent surcharge on order value, per HCS-SLA-2024
 
 No deviation from the standard framework agreement terms has been granted to
 this supplier.

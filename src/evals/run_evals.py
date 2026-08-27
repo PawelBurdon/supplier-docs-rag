@@ -50,6 +50,7 @@ from src.rag.answerer import Answerer
 GOLDEN_SET_PATH = Path(__file__).with_name("golden_set.yaml")
 QUESTION_TYPES = ("factual", "multi_hop", "contradiction", "unanswerable")
 RETRIEVAL_MODES = ("hybrid", "vector", "keyword")
+PHRASINGS = ("prose", "code")
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,10 @@ class GoldenQuestion:
     expected_documents: list[str] = field(default_factory=list)
     expected_facts: list[str] = field(default_factory=list)
     expected_answer: str = ""
+    # "code" means the question names a document reference, clause number or SKU
+    # code. Reported separately because the case for keeping BM25 rests entirely
+    # on those questions failing differently, and that should be measured.
+    phrasing: str = "prose"
 
     @property
     def is_answerable(self) -> bool:
@@ -108,9 +113,12 @@ def load_golden_set(path: str | Path = GOLDEN_SET_PATH) -> list[GoldenQuestion]:
             expected_documents=list(entry.get("expected_documents") or []),
             expected_facts=[str(fact) for fact in entry.get("expected_facts") or []],
             expected_answer=str(entry.get("expected_answer", "")),
+            phrasing=str(entry.get("phrasing", "prose")),
         )
         if question.type not in QUESTION_TYPES:
             raise ValueError(f"{question.id}: unknown type {question.type!r}")
+        if question.phrasing not in PHRASINGS:
+            raise ValueError(f"{question.id}: unknown phrasing {question.phrasing!r}")
         if question.id in seen:
             raise ValueError(f"Duplicate question id {question.id}")
         if question.is_answerable and not question.expected_documents:
@@ -280,6 +288,19 @@ def print_retrieval_report(
             f"{mode:10} {summary['recall']:9.3f} {summary['full_coverage']:6.2f} "
             f"{summary['mrr']:6.3f}"
         )
+
+    print("\nBY QUESTION PHRASING (recall@k / MRR)")
+    print(f"{'style':7} {'n':>3}  " + "  ".join(f"{mode:>15}" for mode in results_by_mode))
+    print("-" * (12 + 17 * len(results_by_mode)))
+    for phrasing in PHRASINGS:
+        cells = []
+        count = 0
+        for mode_results in results_by_mode.values():
+            subset = [r for r in mode_results if r.question.phrasing == phrasing]
+            count = len(subset)
+            summary = summarise_retrieval(subset)
+            cells.append(f"{summary['recall']:6.3f} / {summary['mrr']:5.3f}")
+        print(f"{phrasing:7} {count:3d}  " + "  ".join(f"{cell:>15}" for cell in cells))
 
 
 def print_answer_report(results: list[AnswerResult]) -> None:

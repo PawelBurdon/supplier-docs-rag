@@ -95,12 +95,22 @@ def command_index(arguments: argparse.Namespace) -> int:
     destination = NUMPY_INDEX_DIR if isinstance(store, NumpyStore) else CHROMA_DIR
     store.persist(destination)
 
+    # Warm the query side of the cache too. Without this, the committed cache
+    # covers the documents but not the golden set, and CI fails the first time
+    # someone adds a question -- which is a correct failure, but an avoidable
+    # one, since indexing is exactly when it should be fixed.
+    from src.evals.run_evals import load_golden_set
+
+    questions = [question.question for question in load_golden_set()]
+    retriever.embedder.embed_queries(questions)
+
     documents = sorted({chunk.doc_id for chunk in retriever.chunks})
     sizes = [len(chunk.text) for chunk in retriever.chunks]
     print(f"Indexed {len(documents)} documents into {len(retriever.chunks)} chunks")
     print(f"  chunk size: min {min(sizes)}, median {sorted(sizes)[len(sizes) // 2]}, max {max(sizes)} characters")
     print(f"  embeddings: {retriever.embedder.cache_hits} from cache, "
           f"{retriever.embedder.api_calls} API call(s)")
+    print(f"  questions:  {len(questions)} golden set queries cached")
     print(f"  store:      {type(store).__name__} at {destination}")
     if isinstance(store, ChromaStore):
         print("  note:       Chroma writes during add(); persist() is a no-op")
