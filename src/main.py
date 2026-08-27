@@ -150,6 +150,7 @@ def command_ask(arguments: argparse.Namespace) -> int:
 
 
 def command_eval(arguments: argparse.Namespace) -> int:
+    from src.rag.answerer import AnswerError
     from src.evals.run_evals import (
         RETRIEVAL_MODES,
         evaluate_answers,

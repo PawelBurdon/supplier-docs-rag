@@ -38,9 +38,13 @@ from src.core.retriever import RetrievedChunk, Retriever
 from src.rag.prompts import ANSWER_SCHEMA, SYSTEM_PROMPT, build_user_prompt
 
 DEFAULT_GENERATION_MODEL = "gemini-3.1-flash-lite"
-MAX_ATTEMPTS = 3
+MAX_ATTEMPTS = 4
 
 _CITATION = re.compile(r"\[(\d+)\]")
+# Google returns the wait it wants either as "retryDelay': '14s'" or as
+# "Please retry in 14.34s" depending on the error surface. Both are matched.
+_RETRY_DELAY = re.compile(r"retry(?:Delay'?:?\s*'?| in )\s*([0-9]+(?:\.[0-9]+)?)s", re.IGNORECASE)
+MAX_RETRY_WAIT = 90.0
 
 
 class AnswerError(RuntimeError):
@@ -176,6 +180,14 @@ class Answerer:
         return payload
 
     def _with_retries(self, call):
+        """Retry, honouring the server's own retry delay when it sends one.
+
+        Rate limiting is not a transient network blip and must not be treated
+        like one. The free tier allows five requests per minute for some models,
+        and a 429 arrives carrying `retryDelay: 14s`. Backing off 1 second and
+        then 2 guarantees three failures and an aborted evaluation run, which is
+        how the first attempt at a cross-model comparison here died.
+        """
         delay = 1.0
         for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
@@ -183,7 +195,8 @@ class Answerer:
             except Exception as error:
                 if attempt == MAX_ATTEMPTS:
                     raise AnswerError(f"Generation failed after {MAX_ATTEMPTS} attempts: {error}")
-                time.sleep(delay)
+                requested = _requested_retry_delay(str(error))
+                time.sleep(max(delay, requested))
                 delay *= 2
         raise AssertionError("unreachable")
 
@@ -201,6 +214,18 @@ class Answerer:
                 )
             self._client = genai.Client(api_key=key)
         return self._client
+
+
+def _requested_retry_delay(message: str) -> float:
+    """Seconds the API asked us to wait, or 0 when it did not say.
+
+    Capped: a server asking for ten minutes means the run should fail with a
+    clear error, not hang looking like progress.
+    """
+    match = _RETRY_DELAY.search(message)
+    if not match:
+        return 0.0
+    return min(float(match.group(1)) + 0.5, MAX_RETRY_WAIT)
 
 
 def _is_int(value) -> bool:

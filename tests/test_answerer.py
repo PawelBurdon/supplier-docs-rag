@@ -182,3 +182,15 @@ def test_missing_api_key_explains_the_retrieval_only_path(monkeypatch):
     answerer = Answerer(Retriever(store, StubEmbedder(), chunks))
     with pytest.raises(AnswerError, match="retrieval-only"):
         answerer.answer("What is the lead time?")
+
+
+def test_retry_delay_is_taken_from_the_error_message():
+    from src.rag.answerer import MAX_RETRY_WAIT, _requested_retry_delay
+
+    # The two shapes Google actually returns for a 429.
+    assert _requested_retry_delay("429 RESOURCE_EXHAUSTED {'retryDelay': '14s'}") == pytest.approx(14.5)
+    assert _requested_retry_delay("Please retry in 14.347677307s.") == pytest.approx(14.847677307)
+    # No delay quoted: fall back to the caller's exponential backoff.
+    assert _requested_retry_delay("connection reset by peer") == 0.0
+    # An absurd delay is capped, so a run fails visibly instead of hanging.
+    assert _requested_retry_delay("'retryDelay': '600s'") == MAX_RETRY_WAIT
