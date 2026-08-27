@@ -4,6 +4,31 @@ Retrieval-augmented question answering over a set of supplier and delivery
 documents, with citations that are verified in code, an explicit refusal when
 the documents do not contain the answer, and a measured evaluation harness.
 
+## Quick look
+
+Hybrid retrieval (dense + BM25) over seven supplier documents, answers grounded
+in numbered citations that the code verifies, and a 50-question golden set that
+measures both the retrieval and the refusals. No RAG framework.
+
+Reproduce the retrieval metrics, no API key needed -- the embedding cache is
+committed:
+
+```bash
+pip install -r requirements.txt && python -m src.main eval --retrieval-only
+```
+
+| metric             | value | measured over                        |
+|--------------------|-------|--------------------------------------|
+| recall@5 (hybrid)  | 1.000 | 38 answerable questions              |
+| citation validity  | 1.000 | 50 answers, gemini-3.1-flash-lite    |
+| refusal accuracy   | 1.000 | 12 unanswerable questions            |
+| false refusal rate | 0.079 | 3 of 38 answerable questions refused |
+
+Small samples, one invented corpus, and the three false refusals are dissected
+rather than rounded away: the methodology is in Evaluation, and what still
+breaks -- including a case where recall@5 scored 1.000 on a question the system
+failed -- is in Where it fails.
+
 ## Problem
 
 Naive retrieval fails on business documents in three specific ways, and all
