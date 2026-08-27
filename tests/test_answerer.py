@@ -194,3 +194,15 @@ def test_retry_delay_is_taken_from_the_error_message():
     assert _requested_retry_delay("connection reset by peer") == 0.0
     # An absurd delay is capped, so a run fails visibly instead of hanging.
     assert _requested_retry_delay("'retryDelay': '600s'") == MAX_RETRY_WAIT
+
+
+def test_client_errors_are_not_retried():
+    from src.rag.answerer import _is_retryable
+
+    # Worth retrying: transient, or the server told us to wait.
+    assert _is_retryable(RuntimeError("429 RESOURCE_EXHAUSTED"))
+    assert _is_retryable(RuntimeError("503 UNAVAILABLE"))
+    assert _is_retryable(RuntimeError("connection reset by peer"))
+    # Not worth retrying: the request itself is wrong and will stay wrong.
+    assert not _is_retryable(RuntimeError("404 NOT_FOUND. This model is no longer available"))
+    assert not _is_retryable(RuntimeError("400 INVALID_ARGUMENT"))

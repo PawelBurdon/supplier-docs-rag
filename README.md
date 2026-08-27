@@ -286,7 +286,7 @@ metric.
 - `rank-bm25` — BM25 Okapi
 - `pyyaml`, `python-dotenv`, `pytest`
 
-No retrieval framework. 80 tests, none of which touch the network.
+No retrieval framework. 81 tests, none of which touch the network.
 
 ## Running locally
 

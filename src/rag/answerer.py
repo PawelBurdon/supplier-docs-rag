@@ -193,6 +193,8 @@ class Answerer:
             try:
                 return call()
             except Exception as error:
+                if not _is_retryable(error):
+                    raise AnswerError(f"Generation failed: {error}")
                 if attempt == MAX_ATTEMPTS:
                     raise AnswerError(f"Generation failed after {MAX_ATTEMPTS} attempts: {error}")
                 requested = _requested_retry_delay(str(error))
@@ -214,6 +216,20 @@ class Answerer:
                 )
             self._client = genai.Client(api_key=key)
         return self._client
+
+
+def _is_retryable(error: Exception) -> bool:
+    """Rate limits and server faults are worth retrying; a bad request is not.
+
+    Retrying a 404 four times is not resilience, it is four wasted requests
+    against a quota and a slower path to the same failure. Retired model ids
+    return 404 with the name of their replacement in the message, and that
+    message should reach the user immediately.
+    """
+    text = str(error)
+    if "RESOURCE_EXHAUSTED" in text or "429" in text:
+        return True
+    return not any(code in text for code in ("400 ", "401 ", "403 ", "404 ", "INVALID_ARGUMENT"))
 
 
 def _requested_retry_delay(message: str) -> float:
