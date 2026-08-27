@@ -201,6 +201,33 @@ questions: one failure would read as 0.750. None of these figures is precise to
 three decimals, and the next section shows two of them are misleading at one
 decimal.
 
+### Cross-model comparison: attempted, not obtained
+
+`--model` exists so the same golden set can be run against a different
+generator, which turns "why this model" from an opinion into a measurement. It
+is not answered here, and the reason is worth recording rather than hiding.
+
+Both attempts hit exhausted free-tier daily quotas, not rate limits that
+patience could absorb:
+
+| model                  | free-tier daily cap | outcome                          |
+|------------------------|---------------------|----------------------------------|
+| gemini-3.5-flash       | 20 requests         | fewer than the 18-question set needs, once a failed attempt is counted |
+| gemini-3.5-flash-lite  | 500 requests        | already exhausted on this key    |
+| gemini-2.5-flash-lite  | n/a                 | 404, retired for new accounts, API points to its successor |
+
+So every answer metric below comes from `gemini-3.1-flash-lite` alone, and the
+choice of generator rests on cost and availability rather than on a measured
+comparison. The harness is ready for it; the quota was not. Running
+`python -m src.main eval --model <other>` on a key with headroom produces the
+missing column.
+
+Two things did come out of trying. The first attempt died because the retry
+logic treated a 429 carrying `retryDelay: 14s` as a transient blip and backed
+off one second; the second wasted four requests retrying a 404 that named its
+own fix. Both are fixed, and both were only visible because the evaluation
+harness runs the whole set rather than one sample question.
+
 ## Where it fails
 
 Three honest findings, all from the run above.
@@ -286,7 +313,7 @@ metric.
 - `rank-bm25` — BM25 Okapi
 - `pyyaml`, `python-dotenv`, `pytest`
 
-No retrieval framework. 81 tests, none of which touch the network.
+No retrieval framework. 82 tests, none of which touch the network.
 
 ## Running locally
 
