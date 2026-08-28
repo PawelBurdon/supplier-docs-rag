@@ -161,6 +161,7 @@ def command_ask(arguments: argparse.Namespace) -> int:
 
 def command_eval(arguments: argparse.Namespace) -> int:
     from src.rag.answerer import AnswerError
+    from src.core.embedder import DEFAULT_MODEL as EMBEDDING_MODEL
     from src.evals.run_evals import (
         RETRIEVAL_MODES,
         evaluate_answers,
@@ -168,6 +169,7 @@ def command_eval(arguments: argparse.Namespace) -> int:
         load_golden_set,
         print_answer_report,
         print_retrieval_report,
+        write_results,
     )
 
     questions = load_golden_set()
@@ -185,8 +187,26 @@ def command_eval(arguments: argparse.Namespace) -> int:
         return 0
 
     answerer = build_answerer(retriever, model=arguments.model)
-    print(f"\nAnswering {len(questions)} questions with {answerer.model} ...")
-    print_answer_report(evaluate_answers(answerer, questions, k=arguments.k))
+    print(f"\nAnswering {len(questions)} questions with {answerer.model} ...", flush=True)
+    try:
+        results = evaluate_answers(answerer, questions, k=arguments.k)
+    except AnswerError as error:
+        # A rate limit or a blocked generation should end the run with one
+        # readable line, not a traceback the reader has to parse.
+        print(f"error: {error}", file=sys.stderr)
+        print("Retrieval metrics above are unaffected.", file=sys.stderr)
+        return 1
+
+    print_answer_report(results)
+    written = write_results(
+        results_by_mode,
+        results,
+        questions,
+        k=arguments.k,
+        generation_model=answerer.model,
+        embedding_model=EMBEDDING_MODEL,
+    )
+    print(f"\nMetrics written to {written}")
     return 0
 
 

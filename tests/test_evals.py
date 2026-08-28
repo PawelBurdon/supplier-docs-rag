@@ -7,6 +7,7 @@ question scores a perfect refusal accuracy, and only the false refusal rate
 exposes it. There is a test for exactly that.
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -264,3 +265,34 @@ def test_conflict_metrics_separate_the_two_directions():
     )
     assert summary["conflict_detection"] == 1.0
     assert summary["false_conflict_rate"] == 1.0
+
+
+def test_write_results_records_the_context_needed_to_read_the_numbers(tmp_path: Path):
+    from src.evals.run_evals import write_results
+
+    questions = load_golden_set()
+    retriever = StubRetriever(["delivery_sla"])
+    results_by_mode = {"hybrid": evaluate_retrieval(retriever, questions, k=5)}
+    answers = [_answer("factual", refused=False), _answer("unanswerable", refused=True)]
+
+    path = write_results(
+        results_by_mode,
+        answers,
+        questions,
+        k=5,
+        generation_model="gemini-3.1-flash-lite",
+        embedding_model="gemini-embedding-001",
+        path=tmp_path / "results.json",
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    # A metric without its date, model and sample size is what the README warns
+    # against, so the file has to carry all three.
+    assert payload["generated_on"]
+    assert payload["generation_model"] == "gemini-3.1-flash-lite"
+    assert payload["embedding_model"] == "gemini-embedding-001"
+    assert payload["golden_set"]["questions"] == 50
+    assert payload["golden_set"]["by_type"]["unanswerable"] == 12
+    assert payload["golden_set"]["answerable"] == 38
+    assert payload["retrieval"]["hybrid"]["recall"] >= 0
+    assert payload["answers"]["refusal_accuracy"] == 1.0

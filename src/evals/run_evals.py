@@ -38,8 +38,10 @@ paper over it.
 
 from __future__ import annotations
 
+import json
 import statistics
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -48,6 +50,7 @@ from src.core.retriever import Retriever
 from src.rag.answerer import Answerer
 
 GOLDEN_SET_PATH = Path(__file__).with_name("golden_set.yaml")
+RESULTS_PATH = Path("evaluation_results.json")
 QUESTION_TYPES = ("factual", "multi_hop", "contradiction", "unanswerable")
 RETRIEVAL_MODES = ("hybrid", "vector", "keyword")
 PHRASINGS = ("prose", "code")
@@ -250,6 +253,47 @@ def summarise_answers(results: list[AnswerResult]) -> dict[str, float]:
     }
 
 
+def write_results(
+    results_by_mode: dict[str, list[RetrievalResult]],
+    answer_results: list[AnswerResult],
+    questions: list[GoldenQuestion],
+    k: int,
+    generation_model: str,
+    embedding_model: str,
+    path: str | Path = RESULTS_PATH,
+) -> Path:
+    """Write the run's metrics and the context needed to read them.
+
+    A metric without its date, its model and its sample size is the thing this
+    project spends a README section warning about, so the file carries all
+    three. It is written only by a full run: a retrieval-only run has no answer
+    metrics, and half a file overwriting a whole one would quietly delete
+    numbers rather than update them.
+    """
+    counts: dict[str, int] = {}
+    for question in questions:
+        counts[question.type] = counts.get(question.type, 0) + 1
+
+    payload = {
+        "generated_on": date.today().isoformat(),
+        "generation_model": generation_model,
+        "embedding_model": embedding_model,
+        "top_k": k,
+        "golden_set": {
+            "questions": len(questions),
+            "by_type": counts,
+            "answerable": sum(1 for question in questions if question.is_answerable),
+        },
+        "retrieval": {
+            mode: summarise_retrieval(results) for mode, results in results_by_mode.items()
+        },
+        "answers": summarise_answers(answer_results),
+    }
+    destination = Path(path)
+    destination.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return destination
+
+
 def print_retrieval_report(
     results_by_mode: dict[str, list[RetrievalResult]], k: int, primary: str = "hybrid"
 ) -> None:
@@ -372,8 +416,19 @@ def main(argv: list[str] | None = None) -> int:
     print_retrieval_report(results_by_mode, k=arguments.k)
 
     if not arguments.retrieval_only:
+        from src.core.embedder import DEFAULT_MODEL as EMBEDDING_MODEL
+
         answerer = build_answerer(retriever, model=arguments.model)
-        print_answer_report(evaluate_answers(answerer, questions, k=arguments.k))
+        answer_results = evaluate_answers(answerer, questions, k=arguments.k)
+        print_answer_report(answer_results)
+        write_results(
+            results_by_mode,
+            answer_results,
+            questions,
+            k=arguments.k,
+            generation_model=answerer.model,
+            embedding_model=EMBEDDING_MODEL,
+        )
     return 0
 
 
