@@ -28,6 +28,10 @@ A Streamlit demo (`streamlit run app.py`) runs the same pipeline in a browser an
 shows, per question, which chunks each retrieval path found and how the fusion
 ordered them.
 
+![The demo answering a question whose two sources disagree, then opening the
+retrieval panel to show each chunk's cosine score, BM25 rank, fused score and
+which path found it](docs/demo.gif)
+
 Small samples, one invented corpus, and the three false refusals are dissected
 rather than rounded away: the methodology is in Evaluation, and what still
 breaks -- including a case where recall@5 scored 1.000 on a question the system
@@ -451,8 +455,9 @@ Retrieval metrics need nothing else — the embedding cache is committed:
 python -m src.main eval --retrieval-only
 ```
 
-For answering, copy `.env.example` to `.env` and add a Google AI Studio key
-(https://aistudio.google.com/apikey):
+For answering, copy `.env.example` to `.env` and set `GOOGLE_API_KEY` to a Google
+AI Studio key (https://aistudio.google.com/apikey). That one variable is what the
+embedder, the answerer, the CLI and the demo all read:
 
 ```bash
 python -m src.main index
@@ -469,6 +474,10 @@ each answer on show:
 ```bash
 streamlit run app.py
 ```
+
+![The demo showing an answer that reports both sides of a contradiction, with
+inline citations and the documents and sections they resolve
+to](docs/screenshot.png)
 
 Without a key the demo still runs real retrieval for the four example questions,
 because their embeddings are in the committed cache; only the generated answer

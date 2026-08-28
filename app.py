@@ -151,7 +151,10 @@ def has_api_key() -> bool:
     return bool(os.environ.get("GOOGLE_API_KEY"))
 
 
-st.set_page_config(page_title="supplier-docs-rag", layout="centered")
+# Wide, because the retrieval table has eight columns and the centered layout
+# clips the last one -- which happens to be the column showing whether a chunk
+# came from dense search, from BM25, or from both.
+st.set_page_config(page_title="supplier-docs-rag", layout="wide")
 
 st.title("supplier-docs-rag")
 st.write(
