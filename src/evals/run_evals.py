@@ -68,6 +68,11 @@ class GoldenQuestion:
     # code. Reported separately because the case for keeping BM25 rests entirely
     # on those questions failing differently, and that should be measured.
     phrasing: str = "prose"
+    # Literal fragments of the passages that actually answer the question, one
+    # per expected document. Document-level recall cannot tell a hit from a near
+    # miss inside the same file; these can. They are phrases rather than chunk
+    # ids so that re-chunking does not invalidate the golden set.
+    anchors: list[str] = field(default_factory=list)
 
     @property
     def is_answerable(self) -> bool:
@@ -81,6 +86,11 @@ class RetrievalResult:
     full_coverage: float
     reciprocal_rank: float
     retrieved_documents: list[str]
+    # The same two shapes as above, scored on anchor phrases instead of document
+    # ids: how many of the answering passages were actually retrieved, and
+    # whether all of them were.
+    anchor_recall: float = 0.0
+    anchor_full: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -117,6 +127,7 @@ def load_golden_set(path: str | Path = GOLDEN_SET_PATH) -> list[GoldenQuestion]:
             expected_facts=[str(fact) for fact in entry.get("expected_facts") or []],
             expected_answer=str(entry.get("expected_answer", "")),
             phrasing=str(entry.get("phrasing", "prose")),
+            anchors=[str(anchor) for anchor in entry.get("anchors") or []],
         )
         if question.type not in QUESTION_TYPES:
             raise ValueError(f"{question.id}: unknown type {question.type!r}")
@@ -130,6 +141,10 @@ def load_golden_set(path: str | Path = GOLDEN_SET_PATH) -> list[GoldenQuestion]:
             raise ValueError(
                 f"{question.id}: an unanswerable question must not expect any document"
             )
+        if question.is_answerable and not question.anchors:
+            raise ValueError(f"{question.id}: an answerable question needs at least one anchor")
+        if not question.is_answerable and question.anchors:
+            raise ValueError(f"{question.id}: an unanswerable question must not have anchors")
         seen.add(question.id)
         questions.append(question)
     return questions
@@ -160,6 +175,14 @@ def evaluate_retrieval(
                 reciprocal_rank = 1.0 / position
                 break
 
+        # Anchors are matched on whitespace-normalised text because the corpus is
+        # hard-wrapped: the sentence that answers a question is one string to a
+        # reader and two lines to str.__contains__.
+        retrieved_text = " || ".join(_flatten(hit.chunk.text) for hit in retrieved)
+        anchors_found = sum(
+            1 for anchor in question.anchors if _flatten(anchor) in retrieved_text
+        )
+
         results.append(
             RetrievalResult(
                 question=question,
@@ -167,19 +190,41 @@ def evaluate_retrieval(
                 full_coverage=1.0 if found == expected else 0.0,
                 reciprocal_rank=reciprocal_rank,
                 retrieved_documents=documents,
+                anchor_recall=anchors_found / len(question.anchors) if question.anchors else 0.0,
+                anchor_full=1.0 if question.anchors and anchors_found == len(question.anchors) else 0.0,
             )
         )
     return results
 
 
+def _flatten(text: str) -> str:
+    return " ".join(text.split())
+
+
 def summarise_retrieval(results: list[RetrievalResult]) -> dict[str, float]:
+    """Both granularities, side by side, never one replacing the other.
+
+    Document recall stays because every earlier run was measured with it, and a
+    metric swapped out mid-project makes its own history incomparable. Anchor
+    recall is the sharper number: it asks whether the passage that answers the
+    question was retrieved, not merely whether something from the right file was.
+    """
     if not results:
-        return {"questions": 0, "recall": 0.0, "full_coverage": 0.0, "mrr": 0.0}
+        return {
+            "questions": 0,
+            "recall": 0.0,
+            "full_coverage": 0.0,
+            "mrr": 0.0,
+            "anchor_recall": 0.0,
+            "anchor_full": 0.0,
+        }
     return {
         "questions": len(results),
         "recall": statistics.fmean(result.recall for result in results),
         "full_coverage": statistics.fmean(result.full_coverage for result in results),
         "mrr": statistics.fmean(result.reciprocal_rank for result in results),
+        "anchor_recall": statistics.fmean(result.anchor_recall for result in results),
+        "anchor_full": statistics.fmean(result.anchor_full for result in results),
     }
 
 
@@ -300,19 +345,24 @@ def print_retrieval_report(
     """Per-question table first, aggregates second. A mean hides a regression."""
     results = results_by_mode[primary]
     print(f"\nRETRIEVAL, k={k}, mode={primary}")
-    print(f"{'id':5} {'type':14} {'R@k':>5} {'full':>5} {'RR':>5}  retrieved documents")
-    print("-" * 100)
+    print(
+        f"{'id':5} {'type':14} {'R@k':>5} {'full':>5} {'RR':>5} {'anchR':>6} {'anchF':>6}  "
+        "retrieved documents"
+    )
+    print("-" * 112)
     for result in results:
         documents = ", ".join(_short(doc_id) for doc_id in result.retrieved_documents)
+        flag = "" if result.anchor_full else "  <- answering passage missed"
         print(
             f"{result.question.id:5} {result.question.type:14} "
-            f"{result.recall:5.2f} {result.full_coverage:5.0f} {result.reciprocal_rank:5.2f}  "
-            f"{documents}"
+            f"{result.recall:5.2f} {result.full_coverage:5.0f} {result.reciprocal_rank:5.2f} "
+            f"{result.anchor_recall:6.2f} {result.anchor_full:6.0f}  "
+            f"{documents}{flag}"
         )
 
     print(f"\nBY QUESTION TYPE (mode={primary})")
-    print(f"{'type':14} {'n':>3} {'recall@k':>9} {'full':>6} {'MRR':>6}")
-    print("-" * 45)
+    print(f"{'type':14} {'n':>3} {'recall@k':>9} {'full':>6} {'MRR':>6} {'anchor':>7} {'anchF':>6}")
+    print("-" * 60)
     for question_type in QUESTION_TYPES:
         subset = [r for r in results if r.question.type == question_type]
         if not subset:
@@ -320,20 +370,22 @@ def print_retrieval_report(
         summary = summarise_retrieval(subset)
         print(
             f"{question_type:14} {summary['questions']:3d} {summary['recall']:9.3f} "
-            f"{summary['full_coverage']:6.2f} {summary['mrr']:6.3f}"
+            f"{summary['full_coverage']:6.2f} {summary['mrr']:6.3f} "
+            f"{summary['anchor_recall']:7.3f} {summary['anchor_full']:6.2f}"
         )
 
-    print("\nWHAT HYBRID BOUGHT")
-    print(f"{'mode':10} {'recall@k':>9} {'full':>6} {'MRR':>6}")
-    print("-" * 35)
+    print("\nWHAT HYBRID BOUGHT (document recall first, then anchor recall)")
+    print(f"{'mode':10} {'recall@k':>9} {'full':>6} {'MRR':>6} {'anchor':>7} {'anchF':>6}")
+    print("-" * 50)
     for mode, mode_results in results_by_mode.items():
         summary = summarise_retrieval(mode_results)
         print(
             f"{mode:10} {summary['recall']:9.3f} {summary['full_coverage']:6.2f} "
-            f"{summary['mrr']:6.3f}"
+            f"{summary['mrr']:6.3f} {summary['anchor_recall']:7.3f} "
+            f"{summary['anchor_full']:6.2f}"
         )
 
-    print("\nBY QUESTION PHRASING (recall@k / MRR)")
+    print("\nBY QUESTION PHRASING (document recall / anchor recall)")
     print(f"{'style':7} {'n':>3}  " + "  ".join(f"{mode:>15}" for mode in results_by_mode))
     print("-" * (12 + 17 * len(results_by_mode)))
     for phrasing in PHRASINGS:
@@ -343,7 +395,7 @@ def print_retrieval_report(
             subset = [r for r in mode_results if r.question.phrasing == phrasing]
             count = len(subset)
             summary = summarise_retrieval(subset)
-            cells.append(f"{summary['recall']:6.3f} / {summary['mrr']:5.3f}")
+            cells.append(f"{summary['recall']:6.3f} / {summary['anchor_recall']:5.3f}")
         print(f"{phrasing:7} {count:3d}  " + "  ".join(f"{cell:>15}" for cell in cells))
 
 

@@ -35,6 +35,8 @@
   question: What are the standard payment terms under framework agreement HCS-FA-2024-011?
   expected_documents: [supplier_framework_agreement]
   expected_facts: ["45"]
+  anchors:
+    - "net 45 days from the date of a valid invoice"
   expected_answer: Net 45 days from the date of a valid invoice, with a 2 percent discount for payment within 10 days.
 
 - id: q02
@@ -43,6 +45,8 @@
   question: How long is the warranty on carbon frame sets?
   expected_documents: [returns_and_warranty_policy]
   expected_facts: ["36 months"]
+  anchors:
+    - "Carbon frame sets | FRM-CRB | 36 months"
   expected_answer: 36 months from the date of the distributor's invoice to the trade customer.
 
 - id: q03
@@ -51,6 +55,8 @@
   question: What acceptance quality limit applies to major defects at incoming inspection?
   expected_documents: [quality_inspection_procedure]
   expected_facts: ["1.0"]
+  anchors:
+    - "Major defects:    AQL 1.0"
   expected_answer: AQL 1.0 for major defects, under ISO 2859-1 general inspection level II.
 
 - id: q04
@@ -59,6 +65,8 @@
   question: How many days does a customer have to ship goods after an RMA number is issued?
   expected_documents: [returns_and_warranty_policy]
   expected_facts: ["14"]
+  anchors:
+    - "The customer ships the goods within 14 calendar days of RMA issue"
   expected_answer: 14 calendar days, after which the RMA number expires and must be re-requested.
 
 - id: q05
@@ -67,6 +75,8 @@
   question: Which Incoterms apply to deliveries from Pedalworks Manufacturing?
   expected_documents: [onboarding_pedalworks_manufacturing]
   expected_facts: ["FCA"]
+  anchors:
+    - "FCA Taichung (Incoterms 2020)"
   expected_answer: FCA Taichung (Incoterms 2020); risk passes at the Taichung freight forwarder.
 
 - id: q06
@@ -75,6 +85,8 @@
   question: What is the on-time in-full target for Tier 3 suppliers?
   expected_documents: [delivery_sla]
   expected_facts: ["90"]
+  anchors:
+    - "The OTIF target is 96 percent for Tier 1 and Tier 2 suppliers, and 90"
   expected_answer: 90 percent OTIF per calendar quarter, against 96 percent for Tier 1 and Tier 2.
 
 - id: q07
@@ -85,6 +97,8 @@
   question: Under HCS-QIP-2023, what must a supplier provide within 15 business days of a non-conformance report?
   expected_documents: [quality_inspection_procedure]
   expected_facts: ["root cause"]
+  anchors:
+    - "a root cause analysis within 15 business days"
   expected_answer: A root cause analysis; a containment action is due within 5 business days.
 
 - id: q08
@@ -95,6 +109,9 @@
   question: What lead time applies to a carbon frame set ordered from Velocore Components?
   expected_documents: [onboarding_velocore_components, delivery_sla]
   expected_facts: ["35"]
+  anchors:
+    - "Supplier tier:     Tier 2"
+    - "Carbon frame sets | FRM-CRB | 28 days | 35 days | 60 days"
   expected_answer: 35 calendar days. Velocore is a Tier 2 supplier and the Tier 2 lead time for FRM-CRB carbon frame sets is 35 days.
 
 - id: q09
@@ -103,6 +120,9 @@
   question: A Pedalworks cassette order arrives four days late in March 2026. Does a late delivery penalty apply?
   expected_documents: [onboarding_pedalworks_manufacturing, delivery_sla]
   expected_facts: ["0.5"]
+  anchors:
+    - "until 14 December 2025"
+    - "penalty of 0.5 percent of the order value for each"
   expected_answer: Yes. The 90-day penalty waiver granted at onboarding expired on 14 December 2025, so the standard SLA penalty of 0.5 percent of order value per calendar day applies.
 
 - id: q10
@@ -111,6 +131,9 @@
   question: Can we order carbon forks from Velocore Components?
   expected_documents: [onboarding_velocore_components, supplier_framework_agreement]
   expected_facts: ["not approved", "scope"]
+  anchors:
+    - "Carbon forks (FRK-CRB-*) are NOT approved for this supplier"
+    - "requires a written scope extension signed by both parties"
   expected_answer: No. FRK-CRB carbon forks are not an approved SKU family for Velocore, and extending scope requires a written extension signed by both parties, not an email from the buyer.
 
 - id: q11
@@ -119,6 +142,9 @@
   question: What happens if a supplier's lots fail incoming inspection three times within six months?
   expected_documents: [supplier_framework_agreement, quality_inspection_procedure]
   expected_facts: ["100 percent"]
+  anchors:
+    - "three rejected lots within any rolling six-month period"
+    - "Severity is tightened to ISO 2859-1 tightened inspection after two rejected"
   expected_answer: The distributor may require 100 percent inspection at the supplier's cost; inspection severity also tightens after two rejected lots in a rolling six-month period.
 
 - id: q12
@@ -127,6 +153,9 @@
   question: What penalty do we charge a supplier for a late delivery?
   expected_documents: [delivery_sla, internal_faq_procurement]
   expected_facts: ["0.5", "1 percent"]
+  anchors:
+    - "penalty of 0.5 percent of the order value for each"
+    - "1 percent of the order value per day late, capped at 15 percent"
   expected_answer: The sources disagree. The Delivery SLA states 0.5 percent of order value per calendar day capped at 10 percent; the internal FAQ states 1 percent per day capped at 15 percent. The SLA is the contractual document and the FAQ says so itself.
 
 - id: q13
@@ -135,6 +164,9 @@
   question: What restocking fee applies to a commercial return?
   expected_documents: [returns_and_warranty_policy, internal_faq_procurement]
   expected_facts: ["15 percent", "10 percent"]
+  anchors:
+    - "A restocking fee of 15 percent of the invoice value"
+    - "Restocking fee is 10 percent"
   expected_answer: The sources disagree. The Returns and Warranty Policy states 15 percent of invoice value; the internal FAQ states 10 percent.
 
 - id: q14
@@ -143,6 +175,9 @@
   question: How long do we have to notify a supplier of a late delivery penalty?
   expected_documents: [delivery_sla, internal_faq_procurement]
   expected_facts: ["30", "60"]
+  anchors:
+    - "Penalties are notified in writing within 30 days"
+    - "60 days from the late delivery"
   expected_answer: The sources disagree. The Delivery SLA requires written notice within 30 days of the late delivery; the internal FAQ says 60 days.
 
 - id: q15
@@ -192,6 +227,8 @@
   question: Under clause 3.3 of HCS-FA-2024-011, when may the supplier request a price adjustment?
   expected_documents: [supplier_framework_agreement]
   expected_facts: ["6 percent"]
+  anchors:
+    - "moved by more than 6 percent since the last"
   expected_answer: Once per calendar year, with 90 days written notice, and only where the aluminium or carbon input index has moved by more than 6 percent since the last adjustment.
 
 - id: q20
@@ -200,6 +237,8 @@
   question: What caps each party's total liability under the framework agreement?
   expected_documents: [supplier_framework_agreement]
   expected_facts: ["12 months"]
+  anchors:
+    - "the total value of purchase orders placed in the 12 months preceding the claim"
   expected_answer: The total value of purchase orders placed in the 12 months before the claim, except for death, personal injury and the recall indemnity.
 
 - id: q21
@@ -208,6 +247,8 @@
   question: Who pays for a product recall caused by a manufacturing defect?
   expected_documents: [supplier_framework_agreement]
   expected_facts: ["supplier"]
+  anchors:
+    - "the Supplier bears the full cost of the recall"
   expected_answer: The supplier bears the full cost, including the distributor's logistics and customer communication costs.
 
 - id: q22
@@ -216,6 +257,8 @@
   question: How quickly must a supplier acknowledge a purchase order?
   expected_documents: [delivery_sla]
   expected_facts: ["2 business days"]
+  anchors:
+    - "Acknowledgement is due within 2 business"
   expected_answer: Within 2 business days of receipt; an unacknowledged order starts its lead time clock on the third business day anyway.
 
 - id: q23
@@ -224,6 +267,8 @@
   question: Under HCS-SLA-2024, who owns a level 3 escalation and what is the response time?
   expected_documents: [delivery_sla]
   expected_facts: ["Head of Procurement", "5 business days"]
+  anchors:
+    - "OTIF below target for two consecutive quarters | Head of Procurement | 5 business days"
   expected_answer: The Head of Procurement, with a 5 business day response time, triggered by OTIF below target for two consecutive quarters.
 
 - id: q24
@@ -232,6 +277,8 @@
   question: How long are drivetrain components under warranty?
   expected_documents: [returns_and_warranty_policy]
   expected_facts: ["12 months"]
+  anchors:
+    - "Drivetrain components | DRV-* | 12 months"
   expected_answer: 12 months from the date of the distributor's invoice to the trade customer.
 
 - id: q25
@@ -240,6 +287,8 @@
   question: In what order does the distributor prefer to resolve a valid warranty claim?
   expected_documents: [returns_and_warranty_policy]
   expected_facts: ["repair"]
+  anchors:
+    - "resolved by repair, replacement, or credit note"
   expected_answer: Repair, then replacement, then credit note, at the distributor's option and in that order of preference.
 
 - id: q26
@@ -248,6 +297,8 @@
   question: At what warranty claim rate is a supplier placed on a quality improvement plan?
   expected_documents: [returns_and_warranty_policy]
   expected_facts: ["1.5"]
+  anchors:
+    - "warranty claim rate exceeds 1.5 percent of units delivered"
   expected_answer: Above 1.5 percent of units delivered in any rolling 12-month period, which also moves the supplier to 100 percent incoming inspection at its own cost.
 
 - id: q27
@@ -256,6 +307,8 @@
   question: Under HCS-QIP-2023, how many units are sampled from a lot of 300?
   expected_documents: [quality_inspection_procedure]
   expected_facts: ["50"]
+  anchors:
+    - "281 to 500 units     sample 50"
   expected_answer: 50 units, from the 281 to 500 band of the ISO 2859-1 level II plan.
 
 - id: q28
@@ -264,6 +317,8 @@
   question: How often are torque wrenches calibrated, and how long are the certificates kept?
   expected_documents: [quality_inspection_procedure]
   expected_facts: ["6 months", "3 years"]
+  anchors:
+    - "calibrated every 6 months and the"
   expected_answer: Calibrated every 6 months, with the certificate retained for 3 years.
 
 - id: q29
@@ -272,6 +327,8 @@
   question: What happens when a tap test on an FRM-CRB lot gives a dull response?
   expected_documents: [quality_inspection_procedure]
   expected_facts: ["ultrasonic"]
+  anchors:
+    - "Any dull response escalates to"
   expected_answer: It escalates to ultrasonic inspection by the external laboratory before the lot can be released.
 
 - id: q30
@@ -280,6 +337,8 @@
   question: What is the open audit finding against Velocore Components?
   expected_documents: [onboarding_velocore_components]
   expected_facts: ["calibration"]
+  anchors:
+    - "Torque wrench calibration records at the Ostrava plant"
   expected_answer: Incomplete torque wrench calibration records at the Ostrava plant; containment accepted, closure due 30 September 2026.
 
 - id: q31
@@ -288,6 +347,8 @@
   question: Why was lot DRV-CST-1234 rejected?
   expected_documents: [onboarding_pedalworks_manufacturing]
   expected_facts: ["thread"]
+  anchors:
+    - "DRV-CST-1234 lot rejected 8 January 2026 for a thread gauge failure"
   expected_answer: A thread gauge failure classified as a major defect, on 8 January 2026; the corrective action was a replaced tapping tool.
 
 - id: q32
@@ -296,6 +357,9 @@
   question: What lead time applies to a cassette order placed with Pedalworks Manufacturing?
   expected_documents: [onboarding_pedalworks_manufacturing, delivery_sla]
   expected_facts: ["35"]
+  anchors:
+    - "Supplier tier: Tier 3"
+    - "Drivetrain components | DRV-* | 14 days | 21 days | 35 days"
   expected_answer: 35 calendar days. Pedalworks is Tier 3 and the Tier 3 lead time for DRV drivetrain components is 35 days.
 
 - id: q33
@@ -304,6 +368,9 @@
   question: How long should we expect to wait for aluminium wheelsets from Pedalworks?
   expected_documents: [onboarding_pedalworks_manufacturing, delivery_sla]
   expected_facts: ["40"]
+  anchors:
+    - "Supplier tier: Tier 3"
+    - "Wheelsets | WHL-* | 18 days | 25 days | 40 days"
   expected_answer: 40 calendar days, the Tier 3 lead time for WHL wheelsets.
 
 - id: q34
@@ -312,6 +379,9 @@
   question: Velocore missed its OTIF target in the fourth quarter of 2025. Who owns the escalation that triggers, and how fast must they respond?
   expected_documents: [onboarding_velocore_components, delivery_sla]
   expected_facts: ["Head of Procurement"]
+  anchors:
+    - "The 2025 Q4 miss triggered a level 3 escalation"
+    - "OTIF below target for two consecutive quarters | Head of Procurement | 5 business days"
   expected_answer: The Q4 miss triggered a level 3 escalation, which the Delivery SLA assigns to the Head of Procurement with a 5 business day response time.
 
 - id: q35
@@ -320,6 +390,9 @@
   question: A supplier stays below the OTIF target for three consecutive quarters. What can the distributor do about the contract?
   expected_documents: [delivery_sla, supplier_framework_agreement]
   expected_facts: ["material breach"]
+  anchors:
+    - "OTIF below target for three consecutive quarters | Executive review, contract at risk"
+    - "Failure to meet the on-time delivery threshold in the Delivery SLA for"
   expected_answer: Three consecutive quarters below target is a material breach under the framework agreement, so the contract can be terminated if it is not remedied within 30 days; the SLA also escalates it to executive review.
 
 - id: q36
@@ -328,6 +401,9 @@
   question: Which of our suppliers is approved to deliver WHL-CRB carbon wheelsets?
   expected_documents: [onboarding_pedalworks_manufacturing, onboarding_velocore_components]
   expected_facts: ["not approved"]
+  anchors:
+    - "Carbon wheelsets (WHL-CRB-*) are not approved"
+    - "FRK-ALU-*                       aluminium forks"
   expected_answer: Neither. Carbon wheelsets are not an approved SKU family for Pedalworks, and Velocore is approved only for frame sets and aluminium forks.
 
 - id: q37
@@ -336,6 +412,9 @@
   question: How long is a cassette under warranty, and what does the supplier reimburse for a valid claim?
   expected_documents: [returns_and_warranty_policy, supplier_framework_agreement]
   expected_facts: ["12 months", "handling fee"]
+  anchors:
+    - "Drivetrain components | DRV-* | 12 months"
+    - "plus a flat handling fee of EUR 12 per unit"
   expected_answer: 12 months for drivetrain components; the supplier reimburses the wholesale value plus a flat EUR 12 handling fee per unit.
 
 - id: q38
@@ -344,6 +423,9 @@
   question: Velocore's price validity under HCS-FA-2024-011 has expired. On what basis may they raise prices now?
   expected_documents: [onboarding_velocore_components, supplier_framework_agreement]
   expected_facts: ["6 percent", "90 days"]
+  anchors:
+    - "Fixed until 28 February 2025"
+    - "moved by more than 6 percent since the last"
   expected_answer: Prices were fixed until 28 February 2025; after that, clause 3.3 allows one adjustment per calendar year with 90 days notice and only if the input index has moved more than 6 percent.
 
 - id: q39
@@ -352,6 +434,9 @@
   question: Pedalworks blames ocean freight booking delays for its late deliveries. Does the SLA excuse that?
   expected_documents: [onboarding_pedalworks_manufacturing, delivery_sla]
   expected_facts: ["force majeure"]
+  anchors:
+    - "attributes lateness to ocean freight booking"
+    - "does not cover raw material price movements"
   expected_answer: No. Force majeure does not cover a supplier's own subcontractor default, and because the Incoterms are FCA Taichung the freight leg is not the distributor's responsibility, which is why the case is contested at escalation level 2.
 
 - id: q40
@@ -362,6 +447,9 @@
   question: How much do we deduct per day under clause 5.1 of HCS-SLA-2024 for a late FRM-ALU order?
   expected_documents: [delivery_sla, internal_faq_procurement]
   expected_facts: ["0.5", "1 percent"]
+  anchors:
+    - "penalty of 0.5 percent of the order value for each"
+    - "1 percent of the order value per day late, capped at 15 percent"
   expected_answer: The sources disagree. Clause 5.1 of the SLA says 0.5 percent of order value per calendar day, capped at 10 percent; the internal FAQ says 1 percent per day capped at 15 percent.
 
 - id: q41
@@ -370,6 +458,9 @@
   question: How quickly are returned goods inspected once they reach the warehouse?
   expected_documents: [returns_and_warranty_policy, quality_inspection_procedure]
   expected_facts: ["5 business days", "3 business days"]
+  anchors:
+    - "the goods are inspected within 5 business days"
+    - "Returned goods are inspected within 3"
   expected_answer: The sources disagree. The Returns and Warranty Policy says within 5 business days of receipt; the Quality Inspection Procedure says within 3.
 
 - id: q42
@@ -378,6 +469,9 @@
   question: What expedite surcharge applies to a Velocore order under HCS-SLA-2024?
   expected_documents: [delivery_sla, onboarding_velocore_components]
   expected_facts: ["8 percent", "5 percent"]
+  anchors:
+    - "surcharge of 8 percent of"
+    - "5 percent surcharge on order value, per HCS-SLA-2024"
   expected_answer: The sources disagree. The SLA sets an 8 percent expedite surcharge; the Velocore onboarding record states 5 percent while citing the same SLA.
 
 - id: q43

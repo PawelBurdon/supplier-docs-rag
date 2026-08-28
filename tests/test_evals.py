@@ -112,6 +112,7 @@ def test_duplicate_ids_are_rejected(tmp_path: Path):
         "type": "factual",
         "question": "?",
         "expected_documents": ["delivery_sla"],
+        "anchors": ["some phrase"],
     }
     with pytest.raises(ValueError, match="Duplicate"):
         load_golden_set(_write(tmp_path, [entry, dict(entry)]))
@@ -151,7 +152,16 @@ def test_unanswerable_question_with_expected_documents_is_rejected(tmp_path: Pat
 
 
 def _question(expected: list[str], question_type: str = "multi_hop") -> GoldenQuestion:
-    return GoldenQuestion(id="t1", type=question_type, question="?", expected_documents=expected)
+    # "text" is what StubRetriever puts in every chunk it returns, so an anchor
+    # of "text" is found whenever anything at all was retrieved. These tests are
+    # about the document-level arithmetic; anchor scoring has its own tests.
+    return GoldenQuestion(
+        id="t1",
+        type=question_type,
+        question="?",
+        expected_documents=expected,
+        anchors=["text"],
+    )
 
 
 def test_recall_gives_partial_credit_and_full_coverage_does_not():
@@ -296,3 +306,107 @@ def test_write_results_records_the_context_needed_to_read_the_numbers(tmp_path: 
     assert payload["golden_set"]["answerable"] == 38
     assert payload["retrieval"]["hybrid"]["recall"] >= 0
     assert payload["answers"]["refusal_accuracy"] == 1.0
+
+
+def _flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+def test_every_anchor_is_a_literal_fragment_of_an_expected_document():
+    # The whole point of an anchor is that it is text from the corpus, not a
+    # paraphrase of it. A paraphrase would silently score zero for ever and look
+    # like a retrieval failure.
+    from src.core.chunker import chunk_documents
+
+    chunks = chunk_documents(load_documents(DOCUMENTS_DIR))
+    by_document: dict[str, list[str]] = {}
+    for chunk in chunks:
+        by_document.setdefault(chunk.doc_id, []).append(_flat(chunk.text))
+
+    for question in load_golden_set():
+        for anchor in question.anchors:
+            found = any(
+                _flat(anchor) in text
+                for doc_id in question.expected_documents
+                for text in by_document.get(doc_id, [])
+            )
+            assert found, f"{question.id}: anchor is not literal text of an expected document: {anchor!r}"
+
+
+def test_multi_source_questions_have_an_anchor_per_document():
+    for question in load_golden_set():
+        if question.type in ("multi_hop", "contradiction"):
+            assert len(question.anchors) == len(question.expected_documents), question.id
+
+
+def test_anchor_recall_scores_the_passage_not_the_file():
+    # The q22 shape: the right document is retrieved, the wrong section of it.
+    question = GoldenQuestion(
+        id="t1",
+        type="factual",
+        question="?",
+        expected_documents=["delivery_sla"],
+        anchors=["the sentence that answers it"],
+    )
+    result = evaluate_retrieval(StubRetriever(["delivery_sla"]), [question], k=5)[0]
+    assert result.recall == 1.0, "document recall cannot see the miss"
+    assert result.anchor_recall == 0.0, "anchor recall must see it"
+    assert result.anchor_full == 0.0
+
+
+def test_anchor_recall_gives_partial_credit_across_documents():
+    question = GoldenQuestion(
+        id="t1",
+        type="multi_hop",
+        question="?",
+        expected_documents=["delivery_sla", "internal_faq_procurement"],
+        anchors=["text", "a phrase that is not retrieved"],
+    )
+    result = evaluate_retrieval(
+        StubRetriever(["delivery_sla", "internal_faq_procurement"]), [question], k=5
+    )[0]
+    assert result.anchor_recall == pytest.approx(0.5)
+    assert result.anchor_full == 0.0
+    assert result.full_coverage == 1.0, "document coverage still reports both files"
+
+
+def test_anchors_are_matched_across_line_wrapping():
+    # The corpus is hard-wrapped, so the answering sentence spans two lines.
+    question = GoldenQuestion(
+        id="t1",
+        type="factual",
+        question="?",
+        expected_documents=["delivery_sla"],
+        anchors=["text text"],
+    )
+
+    class WrappedRetriever(StubRetriever):
+        def retrieve(self, question: str, k: int, mode: str = "hybrid"):
+            hits = super().retrieve(question, k=k, mode=mode)
+            chunk = hits[0].chunk
+            wrapped = Chunk(**{**chunk.__dict__, "text": "text\ntext"})
+            return [RetrievedChunk(chunk=wrapped, score=0.1)]
+
+    result = evaluate_retrieval(WrappedRetriever(["delivery_sla"]), [question], k=5)[0]
+    assert result.anchor_recall == 1.0
+
+
+def test_answerable_question_without_an_anchor_is_rejected(tmp_path: Path):
+    with pytest.raises(ValueError, match="at least one anchor"):
+        load_golden_set(
+            _write(
+                tmp_path,
+                [{"id": "x", "type": "factual", "question": "?",
+                  "expected_documents": ["delivery_sla"]}],
+            )
+        )
+
+
+def test_unanswerable_question_with_an_anchor_is_rejected(tmp_path: Path):
+    with pytest.raises(ValueError, match="must not have anchors"):
+        load_golden_set(
+            _write(
+                tmp_path,
+                [{"id": "x", "type": "unanswerable", "question": "?", "anchors": ["nope"]}],
+            )
+        )
