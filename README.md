@@ -24,6 +24,10 @@ pip install -r requirements.txt && python -m src.main eval --retrieval-only
 | refusal accuracy   | 1.000 | 12 unanswerable questions            |
 | false refusal rate | 0.079 | 3 of 38 answerable questions refused |
 
+A Streamlit demo (`streamlit run app.py`) runs the same pipeline in a browser and
+shows, per question, which chunks each retrieval path found and how the fusion
+ordered them.
+
 Small samples, one invented corpus, and the three false refusals are dissected
 rather than rounded away: the methodology is in Evaluation, and what still
 breaks -- including a case where recall@5 scored 1.000 on a question the system
@@ -458,6 +462,18 @@ python -m src.main eval
 python -m src.main eval --model gemini-3.6-flash
 python -m src.main index --store chroma
 ```
+
+The same pipeline in a browser, one question at a time, with the retrieval behind
+each answer on show:
+
+```bash
+streamlit run app.py
+```
+
+Without a key the demo still runs real retrieval for the four example questions,
+because their embeddings are in the committed cache; only the generated answer
+needs one. Its Evaluation panel reads `evaluation_results.json`, which a full
+`eval` run writes.
 
 `--verbose` prints the fused ranking with both per-path scores:
 
