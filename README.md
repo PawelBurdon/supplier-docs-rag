@@ -19,7 +19,8 @@ pip install -r requirements.txt && python -m src.main eval --retrieval-only
 
 | metric             | value | measured over                        |
 |--------------------|-------|--------------------------------------|
-| recall@5 (hybrid)  | 1.000 | 38 answerable questions              |
+| document recall@5  | 1.000 | 38 answerable questions              |
+| anchor recall@5    | 0.921 | did the answering passage make top 5 |
 | citation validity  | 1.000 | 50 answers, gemini-3.1-flash-lite    |
 | refusal accuracy   | 1.000 | 12 unanswerable questions            |
 | false refusal rate | 0.079 | 3 of 38 answerable questions refused |
@@ -209,6 +210,14 @@ Definitions, each of which is a choice:
 - **A refusal is the `refused` field and nothing else.** No phrase matching. If
   the model writes "the documents do not state this" but leaves the field false,
   that is a defect and the harness is built to show it.
+- **Anchor phrases score the passage, not the file.** Each answerable question
+  carries a literal fragment of the passage that answers it, one per expected
+  document, and the report says how many of those fragments were actually
+  retrieved. Document recall stays alongside it rather than being replaced:
+  every earlier run in this README was measured that way, and swapping a metric
+  mid-project makes its own history incomparable. A test asserts every anchor is
+  verbatim corpus text, because a paraphrased anchor would score zero for ever
+  and look like a retrieval failure.
 - **Phrasing is a measured axis, not a label.** 11 of the answerable questions
   are written the way somebody holding the paperwork would ask -- naming
   HCS-SLA-2024, clause 5.1, FRM-CRB -- and 27 in plain business language. The
@@ -218,24 +227,29 @@ Definitions, each of which is a choice:
 
 ### Retrieval, k=5, 38 answerable questions
 
-| mode    | recall@5 | full coverage | MRR   |
-|---------|----------|---------------|-------|
-| hybrid  | 1.000    | 1.00          | 0.877 |
-| vector  | 0.987    | 0.97          | 0.917 |
-| keyword | 0.908    | 0.84          | 0.811 |
+| mode    | document recall@5 | full coverage | MRR   | anchor recall@5 | all anchors |
+|---------|-------------------|---------------|-------|-----------------|-------------|
+| hybrid  | 1.000             | 1.00          | 0.877 | 0.921           | 0.87        |
+| vector  | 0.987             | 0.97          | 0.917 | 0.882           | 0.79        |
+| keyword | 0.908             | 0.84          | 0.811 | 0.842           | 0.79        |
 
-| type          | n  | recall@5 | full coverage | MRR   |
-|---------------|----|----------|---------------|-------|
-| factual       | 20 | 1.000    | 1.00          | 0.842 |
-| multi_hop     | 12 | 1.000    | 1.00          | 0.875 |
-| contradiction | 6  | 1.000    | 1.00          | 1.000 |
+The gap between the two recall columns is the point of having both. Document
+recall says every answerable question retrieved the right file. Anchor recall
+says that in 13 percent of them the passage carrying the answer was not among
+the five chunks the model saw.
 
-By phrasing, recall@5 and MRR:
+| type          | n  | document recall@5 | MRR   | anchor recall@5 | all anchors |
+|---------------|----|-------------------|-------|-----------------|-------------|
+| factual       | 20 | 1.000             | 0.842 | 0.950           | 0.95        |
+| multi_hop     | 12 | 1.000             | 0.875 | 0.875           | 0.75        |
+| contradiction | 6  | 1.000             | 1.000 | 0.917           | 0.83        |
+
+By phrasing, document recall and anchor recall:
 
 | style | n  | hybrid        | vector        | keyword       |
 |-------|----|---------------|---------------|---------------|
-| prose | 27 | 1.000 / 0.864 | 0.981 / 0.944 | 0.870 / 0.809 |
-| code  | 11 | 1.000 / 0.909 | 1.000 / 0.848 | 1.000 / 0.818 |
+| prose | 27 | 1.000 / 0.907 | 0.981 / 0.870 | 0.870 / 0.833 |
+| code  | 11 | 1.000 / 0.955 | 1.000 / 0.909 | 1.000 / 0.864 |
 
 That last table is the honest version of "hybrid retrieval is for exact terms".
 On code-phrased questions dense search finds the right documents too -- recall
@@ -351,7 +365,7 @@ Hybrid is kept because recall is the metric that matters when the generator
 reads all five chunks, but the ranking cost is real and is not disguised
 anywhere in this README.
 
-### 2. Document-level recall reports a perfect score on a question the system failed
+### 2. The right document, the wrong section, on five questions
 
 q22 asks "how quickly must a supplier acknowledge a purchase order". The Delivery
 SLA answers it in one sentence: acknowledgement is due within 2 business days of
@@ -370,28 +384,37 @@ the answer lives in:
 
 answer: "The provided documents do not state how quickly a supplier must
          acknowledge a purchase order."
-
-retrieval score for q22: recall@5 = 1.000, MRR = 1.000
 ```
 
-The retrieval metric is perfect because `delivery_sla` is in the result set. The
-wrong section of it is. Recall is computed over documents, deliberately, so that
-the golden set survives a change to the chunker -- and this is that decision
-being charged for, on a real question, in the run reported above.
+The refusal is correct behaviour: the model was not given the sentence and did
+not invent it. The failure is upstream.
 
-The refusal itself is correct behaviour: the model was not given the sentence
-and did not invent it. The failure is upstream, and the metric that should have
-caught it is looking at the wrong granularity.
+For a while this README could only describe that failure, because the metric
+could not see it: document recall scored q22 at 1.000, since `delivery_sla` was
+in the result set -- the wrong section of it. The golden set now carries anchor
+phrases, and the same run reports anchor recall 0.921 with all anchors present on
+only 87 percent of questions. Five questions retrieve the right documents and
+miss the passage:
 
-Two changes would fix it, and they are on the roadmap in this order: a reranker
-that scores candidates against the question rather than against how many lists
-they appear in, and an anchor phrase in the golden set so recall can be scored
-at section level without pinning the set to chunk ids that move whenever the
-chunker changes.
+| question | type          | document recall | anchor recall | what was missed                        |
+|----------|---------------|-----------------|---------------|----------------------------------------|
+| q22      | factual       | 1.00            | 0.00          | the acknowledgement window entirely     |
+| q08      | multi_hop     | 1.00            | 0.50          | the Velocore tier, so the hop cannot be made |
+| q33      | multi_hop     | 1.00            | 0.50          | one of the two passages                 |
+| q39      | multi_hop     | 1.00            | 0.50          | the force majeure clause                |
+| q42      | contradiction | 1.00            | 0.50          | one side of the disagreement            |
 
-The same fault produces the third false refusal, q39: the SLA was retrieved, but
-section 1, Purpose, instead of section 7, Force Majeure, which is where the
-answer is.
+q42 is the sharpest of them. It is a contradiction question, document coverage
+reports both files retrieved, and only one of the two conflicting passages
+actually reached the model. A system that holds one side of a disagreement
+cannot report a disagreement, and until this metric existed nothing in the
+numbers said so.
+
+Every one of the five is recoverable. Each missing passage is in the
+twenty-candidate pool that fusion draws from, at ranks 8, 10, 10, 15 and 17 --
+inside the window a reranker would score, and outside the five that reach the
+model. That is why the reranker is first on the roadmap, and why this metric had
+to come before it.
 
 ### 3. One of the three false refusals is arguably the harness being wrong
 
@@ -507,39 +530,46 @@ system trust store instead; it is an optional import, not a dependency.
 
 In priority order, with the reason for the order.
 
-1. **A reranker over the fused candidates.** Two of the three false refusals
-   share one root cause: the right document was retrieved and the wrong section
-   of it was. Fusion ranks a chunk by how many lists it appears in; a
-   cross-encoder would rank it by whether it answers the question. This is the
-   only item that addresses a failure visible in the current numbers, so it is
-   first.
-2. **An anchor phrase per golden set question, scored alongside document
-   recall.** Document-level recall reported 1.000 on a question the system
-   failed, which is the trade-off documented in the evaluation section behaving
-   exactly as described. A phrase anchor gives section-level accuracy without
-   pinning the golden set to chunk ids that move whenever the chunker changes.
-3. **Expand context around retrieved chunks rather than merging at index time.**
+1. **A reranker over the fused candidates.** Five questions retrieve the right
+   documents and miss the passage that answers them, and two of the three false
+   refusals have that as their root cause. Fusion ranks a chunk by how many
+   lists it appears in; a cross-encoder would rank it by whether it answers the
+   question. All five missing passages are already in the twenty-candidate pool,
+   at fused ranks 8 to 17, so a reranker has something to promote rather than
+   something to find.
+2. **Expand context around retrieved chunks rather than merging at index time.**
    Retrieve the small, precise chunk, then include its neighbours in the prompt.
-   Would have rescued q22 as a side effect, but it treats the symptom, which is
-   why it sits behind the reranker.
-4. **The cross-model comparison, on a key with quota.** One run, one table, and
+   Would rescue q22 as a side effect, but it treats the symptom, which is why it
+   sits behind the reranker.
+3. **The cross-model comparison, on a key with quota.** One run, one table, and
    the choice of generator stops being an assumption. Cheap, blocked only by
    quota, and worth doing before any further prompt work.
-5. **Judge answer quality with a model from a different provider.** Substring
+4. **Judge answer quality with a model from a different provider.** Substring
    fact checks cannot see a right figure attached to the wrong question. An LLM
    judge can, but a model judging output from its own family has a documented
    self-preference bias, so this needs a second provider and belongs after the
    deterministic metrics are saturated.
-6. **Local embeddings through Ollama for a zero-quota offline path.**
+5. **Local embeddings through Ollama for a zero-quota offline path.**
    Deliberately rejected for now: it means `torch`, hundreds of megabytes, to
    serve a corpus of 63 chunks. It becomes worth it only if API quota turns into
    the binding constraint.
 
-Done, and left in the history rather than quietly deleted: growing the golden
-set from 18 to 50 questions. It was the first item on this list for exactly the
-reason the evaluation section now shows -- every conclusion drawn from 18
-questions rested on one or two data points, and one of them reversed when the
-sample grew.
+Two items have been done, and the reasoning is left here rather than quietly
+deleted.
+
+**Growing the golden set from 18 to 50 questions** was first on this list
+because every conclusion drawn from 18 questions rested on one or two data
+points. One of them reversed when the sample grew: hybrid retrieval went from
+losing to dense-only search to beating it, once the RRF constant could be chosen
+on evidence rather than on a single question.
+
+**Anchor phrases** were second on the list and were promoted above the reranker.
+The original order was written before q22 was found. q22 showed that document
+recall is blind to exactly the class of failure a reranker fixes -- it scored
+1.000 on a question the system refused to answer -- so a reranker built first
+would have been a change whose effect could not be measured offline, on the
+metric this project runs in CI. Measuring first cost one stage and turned an
+invisible improvement into a number with a before and an after.
 
 ## Licence
 
