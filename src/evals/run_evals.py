@@ -306,6 +306,7 @@ def write_results(
     generation_model: str,
     embedding_model: str,
     path: str | Path = RESULTS_PATH,
+    reranker: dict | None = None,
 ) -> Path:
     """Write the run's metrics and the context needed to read them.
 
@@ -323,6 +324,10 @@ def write_results(
         "generated_on": date.today().isoformat(),
         "generation_model": generation_model,
         "embedding_model": embedding_model,
+        # Whether these numbers came from the reranked pipeline, and under which
+        # instructions. Without it the file records a score whose configuration
+        # has to be guessed.
+        "reranker": reranker or {"enabled": False},
         "top_k": k,
         "golden_set": {
             "questions": len(questions),
@@ -397,6 +402,45 @@ def print_retrieval_report(
             summary = summarise_retrieval(subset)
             cells.append(f"{summary['recall']:6.3f} / {summary['anchor_recall']:5.3f}")
         print(f"{phrasing:7} {count:3d}  " + "  ".join(f"{cell:>15}" for cell in cells))
+
+
+def print_rerank_comparison(
+    baseline: list[RetrievalResult], reranked: list[RetrievalResult], k: int
+) -> None:
+    """Fusion alone against fusion plus reranking, on the same questions.
+
+    Printed as a comparison rather than a replacement because a reranker is a
+    claim -- that reading candidates against the question beats counting the
+    lists they appear in -- and a claim needs a before and an after.
+    """
+    before = summarise_retrieval(baseline)
+    after = summarise_retrieval(reranked)
+
+    print(f"\nWHAT RERANKING BOUGHT, k={k}, hybrid retrieval")
+    print(f"{'':22} {'fusion only':>12} {'+ reranker':>12} {'change':>8}")
+    print("-" * 58)
+    for label, key in (
+        ("document recall@k", "recall"),
+        ("document full", "full_coverage"),
+        ("MRR", "mrr"),
+        ("anchor recall@k", "anchor_recall"),
+        ("all anchors", "anchor_full"),
+    ):
+        delta = after[key] - before[key]
+        print(f"{label:22} {before[key]:12.3f} {after[key]:12.3f} {delta:+8.3f}")
+
+    moved = [
+        (b.question.id, b.anchor_recall, a.anchor_recall)
+        for b, a in zip(baseline, reranked)
+        if b.anchor_recall != a.anchor_recall
+    ]
+    if moved:
+        print("\nQuestions whose answering passages moved:")
+        for question_id, before_value, after_value in moved:
+            direction = "recovered" if after_value > before_value else "LOST"
+            print(f"  {question_id}: anchor recall {before_value:.2f} -> {after_value:.2f}  {direction}")
+    else:
+        print("\nNo question changed its anchor recall.")
 
 
 def print_answer_report(results: list[AnswerResult]) -> None:

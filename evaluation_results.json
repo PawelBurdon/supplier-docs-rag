@@ -1,7 +1,12 @@
 {
-  "generated_on": "2026-08-28",
+  "generated_on": "2026-08-31",
   "generation_model": "gemini-3.1-flash-lite",
   "embedding_model": "gemini-embedding-001",
+  "reranker": {
+    "enabled": true,
+    "model": "gemini-3.1-flash-lite",
+    "prompt": "conflict-aware"
+  },
   "top_k": 5,
   "golden_set": {
     "questions": 50,
@@ -37,16 +42,24 @@
       "mrr": 0.8114035087719298,
       "anchor_recall": 0.8421052631578947,
       "anchor_full": 0.7894736842105263
+    },
+    "hybrid_reranked": {
+      "questions": 38,
+      "recall": 1.0,
+      "full_coverage": 1.0,
+      "mrr": 1.0,
+      "anchor_recall": 1.0,
+      "anchor_full": 1.0
     }
   },
   "answers": {
     "questions": 50,
     "citation_validity": 1.0,
     "refusal_accuracy": 1.0,
-    "false_refusal_rate": 0.07894736842105263,
+    "false_refusal_rate": 0.02631578947368421,
     "conflict_detection": 1.0,
     "false_conflict_rate": 0.03125,
-    "fact_coverage": 0.9210526315789473,
+    "fact_coverage": 0.9736842105263158,
     "unanswerable_questions": 12,
     "answerable_questions": 38
   }

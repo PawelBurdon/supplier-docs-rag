@@ -294,7 +294,12 @@ with st.expander("Evaluation", expanded=False):
             "answer metrics to write."
         )
     else:
-        retrieval = results["retrieval"].get("hybrid", {})
+        # Prefer the reranked numbers when the run had reranking on, so the
+        # retrieval row and the answer rows below describe the same pipeline.
+        reranked_on = results.get("reranker", {}).get("enabled")
+        retrieval = results["retrieval"].get(
+            "hybrid_reranked" if reranked_on else "hybrid", results["retrieval"].get("hybrid", {})
+        )
         answers = results["answers"]
         golden = results["golden_set"]
         rows = [

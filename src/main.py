@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 DOCUMENTS_DIR = Path("documents")
+RERANK_PROMPT_DEFAULT = "conflict-aware"
 NUMPY_INDEX_DIR = Path("index/numpy")
 CHROMA_DIR = Path("chroma")
 
@@ -54,11 +55,14 @@ def build_retriever(
     top_k: int = 5,
     offline: bool = False,
     documents_dir: Path = DOCUMENTS_DIR,
+    rerank: bool = False,
+    rerank_prompt: str | None = None,
 ):
     """Load, chunk, embed and index the corpus, and return a retriever over it."""
     from src.core.chunker import chunk_documents
     from src.core.embedder import Embedder
     from src.core.loader import load_documents
+    from src.core.reranker import Reranker
     from src.core.retriever import Retriever
     from src.core.store import ChromaStore, NumpyStore
 
@@ -73,7 +77,12 @@ def build_retriever(
     else:
         raise ValueError(f"Unknown store {store_kind!r}; expected 'numpy' or 'chroma'")
     store.add(chunks, vectors)
-    return Retriever(store, embedder, chunks, top_k=top_k)
+    reranker = (
+        Reranker(offline=offline, **({"prompt": rerank_prompt} if rerank_prompt else {}))
+        if rerank
+        else None
+    )
+    return Retriever(store, embedder, chunks, top_k=top_k, reranker=reranker)
 
 
 def build_answerer(retriever, model: str | None = None):
@@ -104,6 +113,19 @@ def command_index(arguments: argparse.Namespace) -> int:
     questions = [question.question for question in load_golden_set()]
     retriever.embedder.embed_queries(questions)
 
+    reranked = 0
+    if arguments.rerank:
+        # Same bargain as the embedding cache: pay once with a key so that the
+        # metrics run without one. The orderings are keyed on the candidate list,
+        # so a change to chunking or fusion invalidates them by design.
+        from src.core.reranker import Reranker
+
+        reranker = Reranker(offline=arguments.offline, prompt=arguments.rerank_prompt)
+        for question in load_golden_set():
+            candidates = retriever.retrieve(question.question, k=retriever.pool)
+            reranker.rerank(question.question, candidates, top_k=retriever.top_k)
+            reranked += 1
+
     documents = sorted({chunk.doc_id for chunk in retriever.chunks})
     sizes = [len(chunk.text) for chunk in retriever.chunks]
     print(f"Indexed {len(documents)} documents into {len(retriever.chunks)} chunks")
@@ -111,6 +133,8 @@ def command_index(arguments: argparse.Namespace) -> int:
     print(f"  embeddings: {retriever.embedder.cache_hits} from cache, "
           f"{retriever.embedder.api_calls} API call(s)")
     print(f"  questions:  {len(questions)} golden set queries cached")
+    if arguments.rerank:
+        print(f"  reranking:  {reranked} orderings cached")
     print(f"  store:      {type(store).__name__} at {destination}")
     if isinstance(store, ChromaStore):
         print("  note:       Chroma writes during add(); persist() is a no-op")
@@ -120,7 +144,12 @@ def command_index(arguments: argparse.Namespace) -> int:
 def command_ask(arguments: argparse.Namespace) -> int:
     from src.rag.answerer import AnswerError
 
-    retriever = build_retriever(store_kind=arguments.store, top_k=arguments.k)
+    retriever = build_retriever(
+        store_kind=arguments.store,
+        top_k=arguments.k,
+        rerank=arguments.rerank,
+        rerank_prompt=arguments.rerank_prompt,
+    )
     answerer = build_answerer(retriever, model=arguments.model)
     try:
         answer = answerer.answer(arguments.question, k=arguments.k)
@@ -182,6 +211,26 @@ def command_eval(arguments: argparse.Namespace) -> int:
     }
     print_retrieval_report(results_by_mode, k=arguments.k)
 
+    if arguments.rerank:
+        from src.core.reranker import Reranker
+        from src.evals.run_evals import print_rerank_comparison
+
+        # The same retriever, with the reranker attached for a second pass, so
+        # the two runs differ in exactly one thing.
+        retriever.reranker = Reranker(
+            offline=arguments.retrieval_only, prompt=arguments.rerank_prompt
+        )
+        reranked = evaluate_retrieval(retriever, questions, k=arguments.k, mode="hybrid")
+        print_rerank_comparison(results_by_mode["hybrid"], reranked, k=arguments.k)
+        # Recorded under its own key. Without it the results file would carry
+        # retrieval numbers from fusion alone next to answer numbers from the
+        # reranked pipeline, which is two configurations in one artefact.
+        results_by_mode["hybrid_reranked"] = reranked
+        # The reranker stays attached: with --rerank the answer half measures the
+        # pipeline as it would actually run, so the refusal and conflict numbers
+        # below describe the reranked system rather than the one just compared
+        # against it.
+
     if arguments.retrieval_only:
         print("\n(retrieval only: answer metrics need an API key)")
         return 0
@@ -205,6 +254,15 @@ def command_eval(arguments: argparse.Namespace) -> int:
         k=arguments.k,
         generation_model=answerer.model,
         embedding_model=EMBEDDING_MODEL,
+        reranker=(
+            {
+                "enabled": True,
+                "model": retriever.reranker.model,
+                "prompt": retriever.reranker.prompt_name,
+            }
+            if retriever.reranker is not None
+            else {"enabled": False}
+        ),
     )
     print(f"\nMetrics written to {written}")
     return 0
@@ -232,6 +290,15 @@ def build_parser() -> argparse.ArgumentParser:
     index_parser.add_argument(
         "--offline", action="store_true", help="Fail rather than embed anything not cached."
     )
+    index_parser.add_argument(
+        "--rerank", action="store_true", help="Also cache a reranked ordering per golden question."
+    )
+    index_parser.add_argument(
+        "--rerank-prompt",
+        choices=("base", "conflict-aware"),
+        default=RERANK_PROMPT_DEFAULT,
+        help="Which reranker instruction set to use.",
+    )
     index_parser.set_defaults(handler=command_index)
 
     ask_parser = subparsers.add_parser("ask", help="Ask a question.")
@@ -239,6 +306,15 @@ def build_parser() -> argparse.ArgumentParser:
     ask_parser.add_argument("--verbose", action="store_true", help="Show retrieved chunks and scores.")
     ask_parser.add_argument("--k", type=int, default=5, help="Chunks to retrieve.")
     ask_parser.add_argument("--model", default=None, help="Generation model id.")
+    ask_parser.add_argument(
+        "--rerank", action="store_true", help="Rerank the fused candidates before answering."
+    )
+    ask_parser.add_argument(
+        "--rerank-prompt",
+        choices=("base", "conflict-aware"),
+        default=RERANK_PROMPT_DEFAULT,
+        help="Which reranker instruction set to use.",
+    )
     ask_parser.set_defaults(handler=command_ask)
 
     eval_parser = subparsers.add_parser("eval", help="Run the golden set.")
@@ -247,6 +323,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     eval_parser.add_argument("--k", type=int, default=5)
     eval_parser.add_argument("--model", default=None, help="Generation model id.")
+    eval_parser.add_argument(
+        "--rerank",
+        action="store_true",
+        help="Also score hybrid retrieval with reranking, and print the comparison.",
+    )
+    eval_parser.add_argument(
+        "--rerank-prompt",
+        choices=("base", "conflict-aware"),
+        default=RERANK_PROMPT_DEFAULT,
+        help="Which reranker instruction set to use.",
+    )
     eval_parser.set_defaults(handler=command_eval)
     return parser
 
