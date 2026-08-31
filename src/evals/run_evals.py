@@ -51,9 +51,26 @@ from src.rag.answerer import Answerer
 
 GOLDEN_SET_PATH = Path(__file__).with_name("golden_set.yaml")
 RESULTS_PATH = Path("evaluation_results.json")
-QUESTION_TYPES = ("factual", "multi_hop", "contradiction", "unanswerable")
+QUESTION_TYPES = (
+    "factual",
+    "multi_hop",
+    "contradiction",
+    # A question two documents answer equally well, because it does not say
+    # which supplier or which contract it means. Correct behaviour is to give
+    # both, or to say the answer depends on that. It is its own type rather than
+    # a contradiction: the sources do not disagree, the question is incomplete.
+    "underspecified",
+    "unanswerable",
+)
 RETRIEVAL_MODES = ("hybrid", "vector", "keyword")
 PHRASINGS = ("prose", "code")
+# Which round of the golden set a question belongs to. The original 50 were
+# written against a 7-document corpus; the extended 20 were written after it
+# grew to 10 and target version conflicts, near-duplicate contracts and
+# questions needing three documents. Reported separately and permanently: an
+# average over both hides whether a regression landed on the easy half or the
+# hard one.
+COHORTS = ("original", "extended")
 
 
 @dataclass(frozen=True)
@@ -73,6 +90,7 @@ class GoldenQuestion:
     # miss inside the same file; these can. They are phrases rather than chunk
     # ids so that re-chunking does not invalidate the golden set.
     anchors: list[str] = field(default_factory=list)
+    cohort: str = "original"
 
     @property
     def is_answerable(self) -> bool:
@@ -128,11 +146,14 @@ def load_golden_set(path: str | Path = GOLDEN_SET_PATH) -> list[GoldenQuestion]:
             expected_answer=str(entry.get("expected_answer", "")),
             phrasing=str(entry.get("phrasing", "prose")),
             anchors=[str(anchor) for anchor in entry.get("anchors") or []],
+            cohort=str(entry.get("cohort", "original")),
         )
         if question.type not in QUESTION_TYPES:
             raise ValueError(f"{question.id}: unknown type {question.type!r}")
         if question.phrasing not in PHRASINGS:
             raise ValueError(f"{question.id}: unknown phrasing {question.phrasing!r}")
+        if question.cohort not in COHORTS:
+            raise ValueError(f"{question.id}: unknown cohort {question.cohort!r}")
         if question.id in seen:
             raise ValueError(f"Duplicate question id {question.id}")
         if question.is_answerable and not question.expected_documents:
@@ -264,7 +285,14 @@ def summarise_answers(results: list[AnswerResult]) -> dict[str, float]:
     answerable = [result for result in results if result.question.is_answerable]
     unanswerable = [result for result in results if not result.question.is_answerable]
     contradictions = [result for result in results if result.question.type == "contradiction"]
-    others = [result for result in answerable if result.question.type != "contradiction"]
+    # Underspecified questions are left out of the false-conflict denominator.
+    # An answer that says two contracts differ is right there, and scoring it as
+    # a false positive would penalise the behaviour the type exists to reward.
+    others = [
+        result
+        for result in answerable
+        if result.question.type not in ("contradiction", "underspecified")
+    ]
     with_facts = [result for result in answerable if result.facts_expected]
 
     return {
@@ -337,6 +365,12 @@ def write_results(
         "retrieval": {
             mode: summarise_retrieval(results) for mode, results in results_by_mode.items()
         },
+        "retrieval_by_cohort": {
+            cohort: summarise_retrieval(
+                [r for r in results_by_mode.get("hybrid", []) if r.question.cohort == cohort]
+            )
+            for cohort in COHORTS
+        },
         "answers": summarise_answers(answer_results),
     }
     destination = Path(path)
@@ -388,6 +422,20 @@ def print_retrieval_report(
             f"{mode:10} {summary['recall']:9.3f} {summary['full_coverage']:6.2f} "
             f"{summary['mrr']:6.3f} {summary['anchor_recall']:7.3f} "
             f"{summary['anchor_full']:6.2f}"
+        )
+
+    print(f"\nBY COHORT (mode={primary})")
+    print(f"{'cohort':10} {'n':>3} {'recall@k':>9} {'full':>6} {'MRR':>6} {'anchor':>7} {'anchF':>6}")
+    print("-" * 56)
+    for cohort in COHORTS:
+        subset = [result for result in results if result.question.cohort == cohort]
+        if not subset:
+            continue
+        summary = summarise_retrieval(subset)
+        print(
+            f"{cohort:10} {summary['questions']:3d} {summary['recall']:9.3f} "
+            f"{summary['full_coverage']:6.2f} {summary['mrr']:6.3f} "
+            f"{summary['anchor_recall']:7.3f} {summary['anchor_full']:6.2f}"
         )
 
     print("\nBY QUESTION PHRASING (document recall / anchor recall)")

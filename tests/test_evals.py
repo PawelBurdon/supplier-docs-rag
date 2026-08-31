@@ -54,11 +54,17 @@ class StubRetriever:
 
 def test_golden_set_has_the_planned_shape():
     questions = load_golden_set()
-    assert len(questions) == 50
+    assert len(questions) == 70
     counts: dict[str, int] = {}
     for question in questions:
         counts[question.type] = counts.get(question.type, 0) + 1
-    assert counts == {"factual": 20, "multi_hop": 12, "contradiction": 6, "unanswerable": 12}
+    assert counts == {
+        "factual": 28,
+        "multi_hop": 18,
+        "contradiction": 6,
+        "underspecified": 3,
+        "unanswerable": 15,
+    }
 
 
 def test_both_phrasing_styles_are_represented():
@@ -301,9 +307,9 @@ def test_write_results_records_the_context_needed_to_read_the_numbers(tmp_path: 
     assert payload["generated_on"]
     assert payload["generation_model"] == "gemini-3.1-flash-lite"
     assert payload["embedding_model"] == "gemini-embedding-001"
-    assert payload["golden_set"]["questions"] == 50
-    assert payload["golden_set"]["by_type"]["unanswerable"] == 12
-    assert payload["golden_set"]["answerable"] == 38
+    assert payload["golden_set"]["questions"] == 70
+    assert payload["golden_set"]["by_type"]["unanswerable"] == 15
+    assert payload["golden_set"]["answerable"] == 55
     assert payload["retrieval"]["hybrid"]["recall"] >= 0
     assert payload["answers"]["refusal_accuracy"] == 1.0
 
@@ -408,5 +414,24 @@ def test_unanswerable_question_with_an_anchor_is_rejected(tmp_path: Path):
             _write(
                 tmp_path,
                 [{"id": "x", "type": "unanswerable", "question": "?", "anchors": ["nope"]}],
+            )
+        )
+
+
+def test_the_two_cohorts_are_both_present_and_correctly_sized():
+    questions = load_golden_set()
+    counts: dict[str, int] = {}
+    for question in questions:
+        counts[question.cohort] = counts.get(question.cohort, 0) + 1
+    assert counts == {"original": 50, "extended": 20}
+
+
+def test_an_unknown_cohort_is_rejected(tmp_path: Path):
+    with pytest.raises(ValueError, match="unknown cohort"):
+        load_golden_set(
+            _write(
+                tmp_path,
+                [{"id": "x", "type": "factual", "question": "?", "cohort": "later",
+                  "expected_documents": ["delivery_sla"], "anchors": ["net 45 days"]}],
             )
         )

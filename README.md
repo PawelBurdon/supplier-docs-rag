@@ -19,8 +19,8 @@ pip install -r requirements.txt && python -m src.main eval --retrieval-only
 
 | metric             | value | measured over                        |
 |--------------------|-------|--------------------------------------|
-| document recall@5  | 0.978 | 38 answerable questions, 10 documents |
-| anchor recall@5    | 0.912 | did the answering passage make top 5 |
+| document recall@5  | 0.967 | 55 answerable questions, 10 documents |
+| anchor recall@5    | 0.897 | did the answering passage make top 5 |
 | citation validity  | 1.000 | 50 answers, gemini-3.1-flash-lite    |
 | refusal accuracy   | 1.000 | 12 unanswerable questions            |
 | false refusal rate | 0.026 | 1 of 38 answerable questions refused |
@@ -237,9 +237,27 @@ in fused order, so the result is always exactly the candidates that went in.
 
 ## Evaluation
 
-`src/evals/golden_set.yaml` holds 50 questions: 20 factual, 12 multi_hop, 6
-contradiction, 12 unanswerable. Each names the documents that should be
-retrieved, the figures a correct answer must contain, a type, and a phrasing.
+`src/evals/golden_set.yaml` holds 70 questions: 28 factual, 18 multi_hop, 6
+contradiction, 3 underspecified and 15 unanswerable. Each names the documents
+that should be retrieved, the figures a correct answer must contain, a type, a
+phrasing and a cohort.
+
+Fifty of them were written against the original 7-document corpus. The other
+twenty were added once that corpus reached its ceiling, and they target what the
+larger corpus made possible: which version of a document governs, which of two
+near-identical contracts applies, questions needing three documents rather than
+two, a comparison across two supplier records, an answer that is an absence
+rather than a statement, and refusals that sit one step from a figure the corpus
+does state. The two cohorts are reported separately and permanently, because an
+average across both would hide whether a regression landed on the easy half or
+the hard one.
+
+The types gained one member. `underspecified` marks a question two documents
+answer equally well because it does not say which supplier or contract it means
+-- "what is the liability cap under our framework agreement" now has two correct
+answers, 12 months and 6. Correct behaviour is to give both, or to say the
+answer depends on that, and these questions are excluded from the false-conflict
+denominator: the sources are not disagreeing, the question is incomplete.
 
 Definitions, each of which is a choice:
 
@@ -272,31 +290,46 @@ Definitions, each of which is a choice:
   those two styles failing differently, and that belongs in a table rather than
   in a paragraph.
 
-### Retrieval, k=5, 38 answerable questions
+### Retrieval, k=5, 55 answerable questions
 
 | mode    | document recall@5 | full coverage | MRR   | anchor recall@5 | all anchors |
 |---------|-------------------|---------------|-------|-----------------|-------------|
-| hybrid  | 1.000             | 1.00          | 0.877 | 0.921           | 0.87        |
-| vector  | 0.987             | 0.97          | 0.917 | 0.882           | 0.79        |
-| keyword | 0.908             | 0.84          | 0.811 | 0.842           | 0.79        |
+| hybrid  | 0.967             | 0.93          | 0.861 | 0.897           | 0.82        |
+| vector  | 0.976             | 0.95          | 0.894 | 0.864           | 0.78        |
+| keyword | 0.861             | 0.78          | 0.782 | 0.773           | 0.67        |
 
 The gap between the two recall columns is the point of having both. Document
 recall says every answerable question retrieved the right file. Anchor recall
 says that in 13 percent of them the passage carrying the answer was not among
 the five chunks the model saw.
 
-| type          | n  | document recall@5 | MRR   | anchor recall@5 | all anchors |
-|---------------|----|-------------------|-------|-----------------|-------------|
-| factual       | 20 | 1.000             | 0.842 | 0.950           | 0.95        |
-| multi_hop     | 12 | 1.000             | 0.875 | 0.875           | 0.75        |
-| contradiction | 6  | 1.000             | 1.000 | 0.917           | 0.83        |
+| type           | n  | document recall@5 | MRR   | anchor recall@5 | all anchors |
+|----------------|----|-------------------|-------|-----------------|-------------|
+| factual        | 28 | 1.000             | 0.827 | 0.964           | 0.96        |
+| multi_hop      | 18 | 0.935             | 0.843 | 0.806           | 0.61        |
+| contradiction  | 6  | 1.000             | 1.000 | 0.917           | 0.83        |
+| underspecified | 3  | 0.778             | 1.000 | 0.778           | 0.67        |
+
+By cohort, which is the split worth watching:
+
+| cohort   | n  | document recall@5 | MRR   | anchor recall@5 | all anchors |
+|----------|----|-------------------|-------|-----------------|-------------|
+| original | 38 | 0.978             | 0.829 | 0.912           | 0.84        |
+| extended | 17 | 0.941             | 0.931 | 0.863           | 0.76        |
+
+The extended cohort is harder on both coverage measures, which is what it was
+written for. Its higher MRR says something more specific: when these questions
+find the right document they find it first, and what they lose is the second or
+third document they also need. Multi-hop is the weakest type at 0.61 full anchor
+coverage over 18 questions -- the answering passages exist, they are retrieved
+individually, and they do not all fit into five chunks together.
 
 By phrasing, document recall and anchor recall:
 
 | style | n  | hybrid        | vector        | keyword       |
 |-------|----|---------------|---------------|---------------|
-| prose | 27 | 1.000 / 0.907 | 0.981 / 0.870 | 0.870 / 0.833 |
-| code  | 11 | 1.000 / 0.955 | 1.000 / 0.909 | 1.000 / 0.864 |
+| prose | 40 | 0.954 / 0.871 | 0.967 / 0.863 | 0.833 / 0.762 |
+| code  | 15 | 1.000 / 0.967 | 1.000 / 0.867 | 0.933 / 0.800 |
 
 That last table is the honest version of "hybrid retrieval is for exact terms".
 On code-phrased questions dense search finds the right documents too -- recall

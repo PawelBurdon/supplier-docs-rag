@@ -21,6 +21,11 @@
 #                        judge model involved: it catches a wrong figure, it does
 #                        not catch bad reasoning around a right one.
 #   expected_answer    - human-readable, for the report. Not asserted on.
+#   cohort             - "original" for the 50 questions written against the
+#                        7-document corpus, "extended" for the 20 written after
+#                        it grew to 10. Defaults to "original". Reported
+#                        separately for good: an average over both would hide
+#                        whether a regression landed on the easy half.
 #   phrasing           - "prose" or "code". A code-phrased question names a
 #                        document reference, clause number or SKU code, the way
 #                        someone who already knows the paperwork would ask.
@@ -556,3 +561,274 @@
   expected_documents: []
   expected_facts: []
   expected_answer: Not stated. A claim rate above 1.5 percent triggers a quality improvement plan and 100 percent inspection; the termination grounds in the framework agreement are OTIF and material breach, not claim rate.
+
+# --- Batch 1 of the harder questions: document versioning, and the first
+# --- underspecified question. Added after the corpus grew to 10 documents.
+
+- id: q51
+  cohort: extended
+  type: underspecified
+  phrasing: prose
+  # q35 without the supplier name. Two framework agreements answer it equally
+  # well and neither is more correct, so the system should give both or say the
+  # answer depends on which supplier is meant.
+  question: A supplier stays below the OTIF target for three consecutive quarters. What can the distributor do about the contract?
+  expected_documents:
+    - delivery_sla
+    - supplier_framework_agreement
+    - supplier_framework_agreement_pedalworks
+  expected_facts: ["Velocore", "Pedalworks"]
+  anchors:
+    - "OTIF below target for three consecutive quarters | Executive review, contract at risk"
+    - "terminate for convenience with 6 months' written notice"
+    - "terminate for convenience with 3 months' written notice"
+  expected_answer: It depends on the supplier. Three consecutive quarters below target is a material breach under both framework agreements, so either contract can be terminated if the breach is not remedied within 30 days; the agreements differ elsewhere, including notice for convenience, six months for Velocore and three for Pedalworks.
+
+- id: q52
+  cohort: extended
+  type: factual
+  phrasing: code
+  question: Which version of the Delivery SLA is in force, and what happened to HCS-SLA-2022?
+  expected_documents: [delivery_sla_v1_9_withdrawn]
+  expected_facts: ["HCS-SLA-2024", "14 January 2024"]
+  anchors:
+    - "WITHDRAWN on 14 January 2024.** Superseded by HCS-SLA-2024 version 2.1"
+  expected_answer: HCS-SLA-2024 version 2.1 is in force. HCS-SLA-2022 version 1.9 was withdrawn on 14 January 2024 and is retained only for orders placed before that date.
+
+- id: q53
+  cohort: extended
+  type: factual
+  phrasing: code
+  # Explicitly about the superseded document. A system that always prefers the
+  # newest version answers this wrongly.
+  question: Under HCS-SLA-2022, the withdrawn version 1.9, what was the late delivery penalty per day?
+  expected_documents: [delivery_sla_v1_9_withdrawn]
+  expected_facts: ["0.25"]
+  anchors:
+    - "penalty of 0.25 percent of the order value for each calendar day"
+  expected_answer: 0.25 percent of order value per calendar day, capped at 5 percent, under the withdrawn HCS-SLA-2022. The figure has no effect on orders placed after 14 January 2024.
+
+- id: q54
+  cohort: extended
+  type: multi_hop
+  phrasing: prose
+  # The same fact in two versions of one document. Answering it needs the
+  # current rule and the knowledge that the other one is void.
+  question: Is there a grace period before late delivery penalties start to accrue?
+  expected_documents: [delivery_sla, delivery_sla_v1_9_withdrawn]
+  expected_facts: ["no grace period"]
+  anchors:
+    - "There is no grace period."
+    - "A grace period of 2 calendar days applied before the penalty began to"
+  expected_answer: No. The Delivery SLA in force states there is no grace period; the two calendar day grace period comes from version 1.9, withdrawn in January 2024.
+
+- id: q55
+  cohort: extended
+  type: factual
+  phrasing: prose
+  question: What on-time in-full target applied to suppliers in 2023?
+  expected_documents: [delivery_sla_v1_9_withdrawn]
+  expected_facts: ["94", "88"]
+  anchors:
+    - "The OTIF target was 94 percent for Tier A and 88 percent for Tier B"
+  expected_answer: 94 percent for Tier A and 88 percent for Tier B, under HCS-SLA-2022, which governed until January 2024.
+
+# --- Batch 2: two framework agreements in near-identical language, and the
+# --- first question that needs three documents.
+
+- id: q56
+  cohort: extended
+  type: factual
+  phrasing: code
+  # Clause 9.1 reads almost identically in both agreements and differs in one
+  # number. Retrieval has to pick the right contract, not the right topic.
+  question: What is the liability cap under HCS-FA-2025-004?
+  expected_documents: [supplier_framework_agreement_pedalworks]
+  expected_facts: ["6 months"]
+  anchors:
+    - "the total value of purchase orders placed in the 6 months preceding the claim"
+  expected_answer: The total value of purchase orders placed in the 6 months before the claim, except for death, personal injury and the recall indemnity.
+
+- id: q57
+  cohort: extended
+  type: underspecified
+  phrasing: prose
+  # Same clause, no contract named. Both answers are correct for their own
+  # supplier and the difference is the point.
+  question: What is the liability cap under our framework agreement?
+  expected_documents: [supplier_framework_agreement, supplier_framework_agreement_pedalworks]
+  expected_facts: ["12 months", "6 months"]
+  anchors:
+    - "the total value of purchase orders placed in the 12 months preceding the claim"
+    - "the total value of purchase orders placed in the 6 months preceding the claim"
+  expected_answer: It depends which agreement. Velocore's caps liability at the value of purchase orders in the preceding 12 months; the Pedalworks agreement caps it at 6 months.
+
+- id: q58
+  cohort: extended
+  type: multi_hop
+  phrasing: prose
+  # Three documents: the record for the figure, the SLA for what repeating it
+  # triggers, and the framework agreement for what that means contractually.
+  question: How bad was Velocore's worst quarter, and what would happen if that repeated three quarters running?
+  expected_documents:
+    - onboarding_velocore_components
+    - delivery_sla
+    - supplier_framework_agreement
+  expected_facts: ["94.2", "material breach"]
+  anchors:
+    - "2025 Q4    94.2%"
+    - "OTIF below target for three consecutive quarters | Executive review, contract at risk"
+    - "Failure to meet the on-time delivery threshold in the Delivery SLA for"
+  expected_answer: 94.2 percent in 2025 Q4, against a 96 percent target. Three consecutive quarters below target escalates to executive review under the SLA and is a material breach under the framework agreement, so the contract can be terminated if it is not remedied within 30 days.
+
+- id: q59
+  cohort: extended
+  type: factual
+  phrasing: prose
+  # The answer is an absence recorded in the document, not a fact stated in it.
+  question: Which supplier has no nominated quality contact?
+  expected_documents: [onboarding_pedalworks_manufacturing]
+  expected_facts: ["Pedalworks"]
+  anchors:
+    - "Quality: not nominated. Escalate to J. Lin."
+  expected_answer: Pedalworks Manufacturing. Its onboarding record lists the quality contact as not nominated and escalates to the export sales manager instead, and flags it as an open onboarding gap.
+
+- id: q60
+  cohort: extended
+  type: factual
+  phrasing: prose
+  # Date arithmetic against a stated deadline, in a record whose other dates
+  # are close enough to be confusable.
+  question: Was the Pedalworks late delivery penalty waiver still in force on 1 December 2025?
+  expected_documents: [onboarding_pedalworks_manufacturing]
+  expected_facts: ["14 December 2025"]
+  anchors:
+    - "first 90 calendar days, that is until 14 December 2025"
+  expected_answer: Yes. The waiver ran for the first 90 calendar days after onboarding, until 14 December 2025, so a delivery late on 1 December 2025 was still covered.
+
+# --- Batch 3: the packaging specification, procedure chains that cross into
+# --- the inspection procedure, and two refusals that sit very close to a fact
+# --- the corpus does state.
+
+- id: q61
+  cohort: extended
+  type: factual
+  phrasing: prose
+  question: What is the maximum height of a loaded pallet?
+  expected_documents: [packaging_and_labelling_specification]
+  expected_facts: ["1800"]
+  anchors:
+    - "Maximum loaded pallet height is 1800 millimetres including the pallet"
+  expected_answer: 1800 millimetres including the pallet itself, with a maximum loaded weight of 700 kilograms.
+
+- id: q62
+  cohort: extended
+  type: multi_hop
+  phrasing: prose
+  # The packaging rule says what happens and what it costs; the inspection
+  # procedure says packaging is checked at all and that a defect quarantines
+  # rather than rejects.
+  question: A carton arrives with a barcode that will not scan. What happens to the lot, and what does it cost the supplier?
+  expected_documents: [packaging_and_labelling_specification, quality_inspection_procedure]
+  expected_facts: ["45"]
+  anchors:
+    - "Relabelling by the warehouse is charged at EUR 45 per pallet"
+    - "4.2 Packaging check. Confirm outer cartons are undamaged"
+  expected_answer: The lot is quarantined rather than rejected, the category buyer is notified the same day, and the warehouse relabels at the supplier's cost, charged at EUR 45 per pallet.
+
+- id: q63
+  cohort: extended
+  type: unanswerable
+  phrasing: prose
+  # The neighbouring figure exists: relabelling is priced per pallet. Repacking
+  # is charged "at cost" and has no rate, so a system that pattern-matches on
+  # the nearby number answers EUR 45.
+  question: What does repacking cost per pallet?
+  expected_documents: []
+  expected_facts: []
+  expected_answer: Not stated. Relabelling is charged at EUR 45 per pallet; repacking is charged at cost, with no rate given.
+
+- id: q64
+  cohort: extended
+  type: unanswerable
+  # Tagged prose, not code: "version 1.5" is a version reference, not one of the
+  # HCS document codes the phrasing axis is about, and mislabelling it would
+  # quietly inflate the code-phrased column.
+  phrasing: prose
+  # Two versions of the SLA are in the corpus, neither of them this one.
+  question: What OTIF target did SLA version 1.5 set?
+  expected_documents: []
+  expected_facts: []
+  expected_answer: Not stated. The corpus holds version 1.9, withdrawn, and version 2.1, in force; there is no version 1.5.
+
+- id: q65
+  cohort: extended
+  type: multi_hop
+  phrasing: prose
+  question: A carbon frame set arrives without its moisture barrier bag. Is the lot rejected?
+  expected_documents: [packaging_and_labelling_specification, quality_inspection_procedure]
+  expected_facts: ["quarantined"]
+  anchors:
+    - "A carbon unit arriving without its barrier bag is quarantined, not rejected"
+    - "tap-test the head tube and"
+  expected_answer: No. It is quarantined rather than rejected, and released only after the carbon lot check in the inspection procedure, which tap-tests the head tube and bottom bracket junctions and escalates a dull response to ultrasonic inspection.
+
+# --- Batch 4: comparison across records, a third underspecified question, and
+# --- the last of the refusals.
+
+- id: q66
+  cohort: extended
+  type: multi_hop
+  phrasing: prose
+  # Neither record answers this; the comparison is the answer.
+  question: Which supplier had the lower on-time performance in the first quarter of 2026?
+  expected_documents: [onboarding_velocore_components, onboarding_pedalworks_manufacturing]
+  expected_facts: ["88.5", "96.8"]
+  anchors:
+    - "2026 Q1    96.8%"
+    - "| 2026 Q1 | 88.5% | 90% | 1.1% |"
+  expected_answer: Pedalworks, at 88.5 percent against a 90 percent target. Velocore reported 96.8 percent against 96 percent in the same quarter.
+
+- id: q67
+  cohort: extended
+  type: underspecified
+  phrasing: prose
+  question: How much notice do we need to give to terminate a framework agreement for convenience?
+  expected_documents: [supplier_framework_agreement, supplier_framework_agreement_pedalworks]
+  expected_facts: ["6 months", "3 months"]
+  anchors:
+    - "terminate for convenience with 6 months' written notice"
+    - "terminate for convenience with 3 months' written notice"
+  expected_answer: It depends on the agreement. Velocore's requires 6 months' written notice, the Pedalworks agreement 3 months, and in both cases termination cannot take effect before the end of the initial term.
+
+- id: q68
+  cohort: extended
+  type: unanswerable
+  phrasing: prose
+  question: Which bank account do we pay Pedalworks invoices into?
+  expected_documents: []
+  expected_facts: []
+  expected_answer: Not stated. The documents give payment terms, currency and minimum order value, and no banking details.
+
+- id: q69
+  cohort: extended
+  type: factual
+  phrasing: code
+  question: Under HCS-PLS-2025, what tape must be used to seal outer cartons?
+  expected_documents: [packaging_and_labelling_specification]
+  expected_facts: ["paper tape"]
+  anchors:
+    - "Cartons are sealed with paper tape. Plastic tape is not accepted"
+  expected_answer: Paper tape. Plastic tape is not accepted, because goods-in separates card and plastic and paper tape lets the carton go straight to the card stream.
+
+- id: q70
+  cohort: extended
+  type: multi_hop
+  phrasing: prose
+  question: A cassette is loose inside the outer carton. Does that reject the lot?
+  expected_documents: [packaging_and_labelling_specification, quality_inspection_procedure]
+  expected_facts: ["minor"]
+  anchors:
+    - "loose cassette in an outer carton is a packaging defect, classified as minor"
+    - "Minor defects:    AQL 2.5"
+  expected_answer: Not on its own. A loose cassette is a packaging defect classified as minor, and minor defects are accepted up to AQL 2.5 under the sampling plan, so the lot is only rejected if the sample exceeds that limit.
