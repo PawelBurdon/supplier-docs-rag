@@ -387,7 +387,11 @@
 - id: q35
   type: multi_hop
   phrasing: prose
-  question: A supplier stays below the OTIF target for three consecutive quarters. What can the distributor do about the contract?
+  # Named the supplier when a second framework agreement entered the corpus:
+  # without it, both agreements answer this equally well and the key was
+  # arbitrary. The unnamed version is kept as its own question, typed
+  # underspecified, because that ambiguity is a real situation worth testing.
+  question: Velocore stays below the OTIF target for three consecutive quarters. What can the distributor do about the contract?
   expected_documents: [delivery_sla, supplier_framework_agreement]
   expected_facts: ["material breach"]
   anchors:
@@ -409,13 +413,19 @@
 - id: q37
   type: multi_hop
   phrasing: prose
+  # Key corrected, wording deliberately unchanged. Cassettes are DRV-CST, which
+  # the Pedalworks record and the Pedalworks framework agreement both list, and
+  # Velocore's scope is frames and forks only -- so the corpus supports the hop
+  # from product to supplier to agreement to fee, and the question is hard
+  # rather than undecidable. The old key pointed at the Velocore agreement and
+  # its EUR 12 fee, which for a cassette is simply the wrong contract.
   question: How long is a cassette under warranty, and what does the supplier reimburse for a valid claim?
-  expected_documents: [returns_and_warranty_policy, supplier_framework_agreement]
-  expected_facts: ["12 months", "handling fee"]
+  expected_documents: [returns_and_warranty_policy, supplier_framework_agreement_pedalworks]
+  expected_facts: ["12 months", "15"]
   anchors:
     - "Drivetrain components | DRV-* | 12 months"
-    - "plus a flat handling fee of EUR 12 per unit"
-  expected_answer: 12 months for drivetrain components; the supplier reimburses the wholesale value plus a flat EUR 12 handling fee per unit.
+    - "plus a flat handling fee of USD 15 per unit"
+  expected_answer: 12 months for drivetrain components. Cassettes come from Pedalworks, whose framework agreement sets the reimbursement at wholesale value plus a flat USD 15 handling fee per unit.
 
 - id: q38
   type: multi_hop
@@ -431,12 +441,19 @@
 - id: q39
   type: multi_hop
   phrasing: prose
+  # Third document added to the key. The Pedalworks framework agreement answers
+  # this directly in clause 5.4, and it did not exist when the question was
+  # written -- the key was incomplete, not the retrieval.
   question: Pedalworks blames ocean freight booking delays for its late deliveries. Does the SLA excuse that?
-  expected_documents: [onboarding_pedalworks_manufacturing, delivery_sla]
+  expected_documents:
+    - onboarding_pedalworks_manufacturing
+    - delivery_sla
+    - supplier_framework_agreement_pedalworks
   expected_facts: ["force majeure"]
   anchors:
     - "attributes lateness to ocean freight booking"
     - "does not cover raw material price movements"
+    - "A delay caused by freight booking is not, of itself, a delay attributable to the Supplier"
   expected_answer: No. Force majeure does not cover a supplier's own subcontractor default, and because the Incoterms are FCA Taichung the freight leg is not the distributor's responsibility, which is why the case is contested at escalation level 2.
 
 - id: q40

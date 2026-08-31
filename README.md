@@ -19,15 +19,16 @@ pip install -r requirements.txt && python -m src.main eval --retrieval-only
 
 | metric             | value | measured over                        |
 |--------------------|-------|--------------------------------------|
-| document recall@5  | 1.000 | 38 answerable questions              |
-| anchor recall@5    | 1.000 | did the answering passage make top 5 |
+| document recall@5  | 0.978 | 38 answerable questions, 10 documents |
+| anchor recall@5    | 0.912 | did the answering passage make top 5 |
 | citation validity  | 1.000 | 50 answers, gemini-3.1-flash-lite    |
 | refusal accuracy   | 1.000 | 12 unanswerable questions            |
 | false refusal rate | 0.026 | 1 of 38 answerable questions refused |
 
-Those are the reranked pipeline. Fusion alone scores anchor recall 0.921 and a
-false refusal rate of 0.079; the difference, and the one instruction wording that
-cost a contradiction question, is in Evaluation.
+The two retrieval rows are fusion alone on the current 10-document corpus. The
+three answer rows were measured with reranking on the earlier 7-document corpus
+and have not yet been re-run against the larger one; Evaluation says which
+configuration produced every number, and the golden set is still being extended.
 
 A Streamlit demo (`streamlit run app.py`) runs the same pipeline in a browser and
 shows, per question, which chunks each retrieval path found and how the fusion
@@ -310,6 +311,74 @@ the right one sits first or third inside that set changes nothing, while whether
 it is in the set at all changes everything. Recall and full coverage are the
 metrics that map onto the product, and hybrid wins both.
 
+### Making the corpus harder, and what that exposed
+
+Two different things happened here and they have different status. Adding
+documents is a new experiment. Correcting a golden set key is a repair to the
+previous one. They are reported separately on purpose.
+
+**The experiment: three documents added.** Every retrieval metric had reached
+1.000 over 38 questions, which does not mean retrieval was solved -- it means
+the corpus had nothing left to confuse it with. At 63 chunks, five retrieved
+chunks were eight percent of everything there was. Three documents were added to
+put real confusion back:
+
+- a **withdrawn** Delivery SLA, version 1.9, with its own lead-time table,
+  its own penalty rate and its own escalation ladder, carrying an explicit
+  status line and the reference of the version that replaced it
+- a **second framework agreement**, for Pedalworks, in near-identical legal
+  language to the first, differing where the onboarding record already said it
+  differed: net 30, USD, FCA Taichung, and a liability cap of 6 months rather
+  than 12
+- a packaging and labelling specification, which adds a topic that overlaps the
+  inspection procedure without contradicting it
+
+The corpus is now 10 documents and 93 chunks, so five retrieved chunks are five
+percent of it rather than eight.
+
+| metric (hybrid, fusion only) | 7 documents | 10 documents |
+|------------------------------|-------------|--------------|
+| document recall@5            | 1.000       | 0.978        |
+| anchor recall@5              | 0.921       | 0.912        |
+| all anchors                  | 0.868       | 0.84         |
+| MRR                          | 0.877       | 0.829        |
+
+**The repair: two keys were wrong.** Revalidating the existing 50 questions
+against the larger corpus showed five whose result changed. Three of them are
+the experiment working as intended and are left exactly as they were. Two were
+questions whose key had been wrong or incomplete, and the new documents only
+made that visible:
+
+- **q37** asks how long a cassette is under warranty and what the supplier
+  reimburses. Its key pointed at the Velocore framework agreement and its EUR 12
+  handling fee. Cassettes are DRV-CST, which Velocore is not approved to supply;
+  the correct contract is the Pedalworks agreement, at USD 15. The expected
+  answer was simply untrue. The wording is unchanged, because the corpus does
+  support the hop from product to supplier to agreement to fee -- the Pedalworks
+  record and the Pedalworks agreement both list cassettes, and Velocore's scope
+  is frames and forks. A question that requires that hop is hard, not
+  undecidable.
+- **q39** asks whether the SLA excuses a supplier's ocean freight delays. The
+  Pedalworks framework agreement answers it directly in clause 5.4 and did not
+  exist when the question was written, so a third expected document was added.
+
+One question, q35, was ambiguous rather than wrong: it asked what the
+distributor can do when "a supplier" misses the OTIF target for three quarters,
+and with two framework agreements in the corpus both answer it equally well. It
+now names Velocore. The unnamed version is kept as a separate question with its
+own type, `underspecified`, because a question that two documents answer
+correctly is a real situation in a company's paperwork and worth measuring
+rather than editing away.
+
+The rule applied to all of this: a key is corrected only when the justification
+holds regardless of which way the number then moves. q37's expected answer was
+false, so it was corrected, and the measured result got worse.
+
+**Numbers from before this revalidation are not directly comparable with the
+ones after it.** Two questions have different keys and one has different
+wording, on top of a corpus that is 48 percent larger. The tables above give the
+two states side by side rather than pretending one series runs through both.
+
 ### What reranking bought, and what one wording of it cost
 
 Three configurations, same 50 questions, same k. "base" and "conflict-aware" are
@@ -451,7 +520,7 @@ Hybrid is kept because recall is the metric that matters when the generator
 reads all five chunks, but the ranking cost is real and is not disguised
 anywhere in this README.
 
-### 2. The right document, the wrong section -- found, then fixed, and the metric is now blind again
+### 2. The right document, the wrong section -- found, fixed, and then made measurable again
 
 q22 asks how quickly a supplier must acknowledge a purchase order. The Delivery
 SLA answers it in one sentence. The system refused, and document-level recall
@@ -474,14 +543,32 @@ Anchor phrases made that visible: anchor recall 0.921 against document recall
 1.000, five questions retrieving the right files and missing the passage.
 Reranking then fixed all five, and the numbers moved to 1.000 across the board.
 
-What is left is not a fix but a warning. Every retrieval metric in this project
-now sits at its maximum on 38 questions, which means the golden set has stopped
-discriminating: the next change to chunking, fusion or reranking cannot be shown
-to help or hurt, because there is no headroom left to measure it in. A ceiling on
-a small sample is an exhausted test set, not a solved problem, and treating it as
-the latter is how a project starts tuning on nothing.
+That produced a second problem, which is why this section has two halves. Every
+retrieval metric reached its maximum on 38 questions, and a ceiling on a small
+sample is an exhausted test set rather than a solved problem: the next change to
+chunking or fusion could not have been shown to help or hurt. Three documents
+were added to the corpus to put the headroom back, and the numbers came down to
+0.978 document recall and 0.912 anchor recall. What the enlarged corpus then
+exposed is the next section.
 
-### 3. One of the three false refusals is arguably the harness being wrong
+### 3. The withdrawn SLA displaces the record that answers the question
+
+Two questions show the corpus change doing exactly what it was added to do, and
+they are left unfixed because they are the point.
+
+q08 asks the lead time for a carbon frame set from Velocore. The current SLA's
+lead-time table comes back first, and the **withdrawn** version of that same
+table comes back second -- two documents whose section headings, wording and
+shape are nearly identical, one of which has been void since January 2024. The
+Velocore record, which supplies the tier the question actually needs, is pushed
+out of the five. q32 fails the same way for a Pedalworks cassette order.
+
+Neither is a scoring artefact. The system retrieves a passage that looks exactly
+like the right answer and is superseded, and it does so because near-duplicate
+revisions of the same document are what a document library actually contains.
+Before these documents existed, both questions scored 1.000.
+
+### 4. One of the three false refusals is arguably the harness being wrong
 
 q36 asks which supplier is approved to deliver WHL-CRB carbon wheelsets. The
 answer is neither. The system said:
@@ -502,9 +589,9 @@ wrong is how an evaluation stops being one. The honest reading of the headline
 numbers is therefore: of three false refusals, two are a real retrieval failure
 with a single root cause, and one is a scoring argument.
 
-### 4. Everything here rests on 63 chunks of invented text
+### 5. Everything here rests on 93 chunks of invented text
 
-Seven documents, one corpus, one language, one domain, all written by the same
+Ten documents, one corpus, one language, one domain, all written by the same
 author as the system that reads them. The contradictions are planted, so the
 conflict detection score measures whether the system finds conflicts that were
 put there to be found. A real corpus brings scanned PDFs, inconsistent headings,

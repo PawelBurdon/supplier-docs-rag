@@ -1,0 +1,90 @@
+PACKAGING AND LABELLING SPECIFICATION
+Document reference: HCS-PLS-2025
+Owner: Halden Cycle Supply B.V., Warehouse Operations
+Version 1.1, issued 6 May 2025
+Applies to: all inbound deliveries from all suppliers
+
+1. PURPOSE
+
+This specification defines how goods must be packed, labelled and palletised for
+delivery to the Rotterdam warehouse. It exists because packaging defects are the
+most common cause of a delivery being quarantined at receipt, and because the
+inspection procedure HCS-QIP-2023 checks packaging condition but does not say
+what correct packaging is.
+
+2. OUTER CARTONS
+
+2.1 Cartons are double-wall corrugated board, minimum 5 mm, with a bursting
+strength of at least 1.5 MPa.
+
+2.2 No carton may exceed 23 kilograms gross. A heavier consignment is split
+across cartons rather than reinforced.
+
+2.3 Cartons are sealed with paper tape. Plastic tape is not accepted, because
+the warehouse separates card and plastic at goods-in and paper tape allows the
+carton to go straight to the card stream.
+
+3. UNIT PROTECTION
+
+3.1 Frame sets travel in a moulded pulp cradle at the head tube and bottom
+bracket, with a foam sleeve on each tube.
+
+3.2 Carbon frame sets and carbon forks additionally travel in a sealed moisture
+barrier bag with one desiccant sachet per unit. A carbon unit arriving without
+its barrier bag is quarantined, not rejected, and released only after the
+carbon lot check in HCS-QIP-2023 section 4.7.
+
+3.3 Wheelsets travel with an axle spacer fitted and the rotor mount masked.
+
+3.4 Cassettes and chains travel in individual boxes inside the outer carton. A
+loose cassette in an outer carton is a packaging defect, classified as minor
+under HCS-QIP-2023 unless the unit itself is damaged.
+
+4. LABELLING
+
+4.1 Each outer carton carries a label showing: the purchase order number, the
+SKU code, the quantity, the lot number, and the supplier name.
+
+4.2 The lot number on the carton label must match the lot number on the
+delivery note. This is the link the warehouse uses to attribute a later warranty
+claim to a supplier, and a mismatch is treated as a documentation failure at
+incoming inspection.
+
+4.3 Labels are printed at 300 dpi or better, on white matt stock, in the lower
+right quadrant of the largest face. Handwritten labels are not accepted.
+
+4.4 Barcodes are Code 128, minimum 30 millimetres tall, with a quiet zone of at
+least 6 millimetres. A barcode that fails to scan twice at goods-in is
+relabelled by the warehouse at the supplier's cost.
+
+5. PALLETS
+
+5.1 Pallets are EUR-pallets, 1200 by 800 millimetres, in sound condition.
+
+5.2 Maximum loaded pallet height is 1800 millimetres including the pallet
+itself. Maximum loaded pallet weight is 700 kilograms.
+
+5.3 Cartons are stacked square to the pallet edges with no overhang. Overhanging
+cartons are the second most common quarantine reason after unreadable labels.
+
+5.4 Loads are secured with stretch wrap and two horizontal straps. Metal banding
+is not accepted, because it damages the carton edge and the warehouse's
+de-palletising equipment.
+
+6. CONSEQUENCES OF NON-CONFORMANCE
+
+6.1 A packaging or labelling defect does not by itself reject a lot. The lot is
+quarantined, the category buyer is notified the same day, and the supplier is
+given the option to have the goods relabelled or repacked at its own cost.
+
+6.2 Repeated packaging non-conformance — four quarantined deliveries within any
+rolling twelve-month period — is grounds for a written performance notice under
+the Delivery SLA.
+
+6.3 Relabelling by the warehouse is charged at EUR 45 per pallet. Repacking is
+charged at cost and is only offered where the goods themselves are undamaged.
+
+7. RECORDS
+
+Photographs of any packaging defect are retained with the incoming inspection
+record for the same 7 years as the inspection record itself.

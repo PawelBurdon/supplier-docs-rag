@@ -11,7 +11,7 @@ DOCUMENTS_DIR = Path(__file__).resolve().parents[1] / "documents"
 
 def test_loads_every_supported_file():
     documents = load_documents(DOCUMENTS_DIR)
-    assert len(documents) == 7
+    assert len(documents) == 10
     assert {document.fmt for document in documents} == {"markdown", "text"}
 
 
