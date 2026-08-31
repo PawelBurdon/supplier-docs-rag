@@ -20,10 +20,14 @@ pip install -r requirements.txt && python -m src.main eval --retrieval-only
 | metric             | value | measured over                        |
 |--------------------|-------|--------------------------------------|
 | document recall@5  | 1.000 | 38 answerable questions              |
-| anchor recall@5    | 0.921 | did the answering passage make top 5 |
+| anchor recall@5    | 1.000 | did the answering passage make top 5 |
 | citation validity  | 1.000 | 50 answers, gemini-3.1-flash-lite    |
 | refusal accuracy   | 1.000 | 12 unanswerable questions            |
-| false refusal rate | 0.079 | 3 of 38 answerable questions refused |
+| false refusal rate | 0.026 | 1 of 38 answerable questions refused |
+
+Those are the reranked pipeline. Fusion alone scores anchor recall 0.921 and a
+false refusal rate of 0.079; the difference, and the one instruction wording that
+cost a contradiction question, is in Evaluation.
 
 A Streamlit demo (`streamlit run app.py`) runs the same pipeline in a browser and
 shows, per question, which chunks each retrieval path found and how the fusion
@@ -80,6 +84,11 @@ refusal.
                                                              |        |
                                     reciprocal rank fusion <-+--------+
                                     score = sum 1/(3 + rank)
+                                                |
+                                             top 20
+                                                |
+                     reranking: a model reads the twenty against the
+                     question and returns the five worth showing
                                                 |
                                              top 5
                                                 |
@@ -188,6 +197,43 @@ link unrelated passages. A chunk whose BM25 score is zero is dropped before
 fusion — zero means no query term occurs in it at all, and letting it in would
 hand out RRF credit in chunk-id order.
 
+**Reranking** (`src/core/reranker.py`). Fusion decides which twenty candidates
+are considered; a model reads those twenty against the question and decides
+which five are shown. Fusion scores a chunk by the positions it occupies in two
+ranked lists and never reads it against the question, which is exactly the
+judgement the five failures above needed.
+
+The reranker is a generative model, not a cross-encoder, and that is a
+compromise rather than a preference. Cohere Rerank is purpose-built for this,
+faster per query and more predictable in its ordering; a local cross-encoder
+through sentence-transformers would also be better at the job. Both were
+rejected for the same reason: one asks everybody who clones this repository for
+a second provider and a second API key, the other asks for torch and several
+hundred megabytes to serve 63 chunks. Reproducibility by a stranger with one key
+won. What it costs is speed -- a generation call per query rather than a scoring
+pass -- and predictability, since a generative model's ordering can move in ways
+a trained scorer's would not.
+
+Orderings are cached on disk and committed, so the metrics still run in CI with
+no key. The cache key is a hash of the model, the instructions, the question and
+the candidate ids in the order they were proposed. All four matter: the same
+question over a different candidate list is a different judgement, and an
+ordering produced under different instructions is a different judgement again.
+Leaving the prompt out of that key would have made a prompt change invisible,
+which is a bug this project nearly shipped -- the key originally held only the
+model.
+
+That cache is deliberately fragile. Any change to chunking, embeddings or the
+fusion constant changes the candidate list and invalidates every entry, which
+costs fifty calls to rebuild. It fails loudly rather than serving a stale
+ordering, and that is the right trade for a project whose numbers are the point.
+
+A model asked to sort passages can also return a list that is not a permutation
+of its input. A dropped candidate would silently shorten the context; a repeated
+one would show the model the same passage twice. Both are repaired in code:
+unknown and duplicate numbers are discarded and anything unmentioned is appended
+in fused order, so the result is always exactly the candidates that went in.
+
 ## Evaluation
 
 `src/evals/golden_set.yaml` holds 50 questions: 20 factual, 12 multi_hop, 6
@@ -263,6 +309,46 @@ chosen anyway, because the generator reads all five retrieved chunks: whether
 the right one sits first or third inside that set changes nothing, while whether
 it is in the set at all changes everything. Recall and full coverage are the
 metrics that map onto the product, and hybrid wins both.
+
+### What reranking bought, and what one wording of it cost
+
+Three configurations, same 50 questions, same k. "base" and "conflict-aware" are
+two reranker instruction sets, differing by one paragraph.
+
+| metric                    | fusion only | + rerank (base) | + rerank (conflict-aware) |
+|---------------------------|-------------|-----------------|---------------------------|
+| document recall@5         | 1.000       | 0.987           | 1.000                     |
+| anchor recall@5           | 0.921       | 0.987           | 1.000                     |
+| all anchors               | 0.868       | 0.974           | 1.000                     |
+| MRR                       | 0.877       | 0.987           | 1.000                     |
+| citation validity         | 1.000       | 1.000           | 1.000                     |
+| refusal accuracy (n=12)   | 1.000       | 1.000           | 1.000                     |
+| false refusal rate        | 0.079       | 0.000           | 0.026                     |
+| conflict detection (n=6)  | 1.000       | 0.833           | 1.000                     |
+| fact coverage             | 0.921       | 0.947           | 0.974                     |
+
+The middle column is the interesting one. Reranking with the plain instruction
+recovered all five questions whose answering passage fusion had missed, and lost
+a sixth: q40 asks what the penalty is "under clause 5.1 of HCS-SLA-2024", so the
+reranker demoted the internal FAQ passage that contradicts that clause. By its
+own instructions it was right -- the FAQ is less relevant to a question naming
+the SLA -- and for this system it was wrong, because the answer then reported one
+side of a disagreement as fact. Relevance to the question is not the same thing
+as the set of passages a grounded answer needs, and the reranker had never been
+told the difference.
+
+One paragraph was added to the reranker's instructions: a passage stating a
+different value for the same thing is useful precisely because it disagrees, even
+when the question names another document. That is the third column. It recovers
+q40 without giving back any of the other five, and it costs nothing measurable
+elsewhere: the false refusal difference against the base variant is q36, a
+question that was already refused before any reranking existed and whose scoring
+this README disputes below.
+
+Read the third column with its ceiling in mind. Five retrieval metrics at 1.000
+across 38 questions does not mean retrieval is solved; it means this golden set
+can no longer tell two retrieval systems apart. That is now the first item on the
+roadmap.
 
 ### The RRF constant, chosen by measurement
 
@@ -365,14 +451,15 @@ Hybrid is kept because recall is the metric that matters when the generator
 reads all five chunks, but the ranking cost is real and is not disguised
 anywhere in this README.
 
-### 2. The right document, the wrong section, on five questions
+### 2. The right document, the wrong section -- found, then fixed, and the metric is now blind again
 
-q22 asks "how quickly must a supplier acknowledge a purchase order". The Delivery
-SLA answers it in one sentence: acknowledgement is due within 2 business days of
-order receipt. The system refused.
+q22 asks how quickly a supplier must acknowledge a purchase order. The Delivery
+SLA answers it in one sentence. The system refused, and document-level recall
+scored the question 1.000, because `delivery_sla` was in the result set -- the
+wrong section of it.
 
 ```
-retrieved for q22:
+retrieved for q22, fusion only:
   internal_faq_procurement      [Lead times]
   internal_faq_procurement      [Late deliveries]
   supplier_framework_agreement  [1. Parties and Scope]
@@ -380,41 +467,19 @@ retrieved for q22:
   internal_faq_procurement      [Payments]
 
 the answer lives in:
-  delivery_sla::003             [3. Committed Lead Times]
-
-answer: "The provided documents do not state how quickly a supplier must
-         acknowledge a purchase order."
+  delivery_sla::003             [3. Committed Lead Times]   fused rank 10 of 20
 ```
 
-The refusal is correct behaviour: the model was not given the sentence and did
-not invent it. The failure is upstream.
+Anchor phrases made that visible: anchor recall 0.921 against document recall
+1.000, five questions retrieving the right files and missing the passage.
+Reranking then fixed all five, and the numbers moved to 1.000 across the board.
 
-For a while this README could only describe that failure, because the metric
-could not see it: document recall scored q22 at 1.000, since `delivery_sla` was
-in the result set -- the wrong section of it. The golden set now carries anchor
-phrases, and the same run reports anchor recall 0.921 with all anchors present on
-only 87 percent of questions. Five questions retrieve the right documents and
-miss the passage:
-
-| question | type          | document recall | anchor recall | what was missed                        |
-|----------|---------------|-----------------|---------------|----------------------------------------|
-| q22      | factual       | 1.00            | 0.00          | the acknowledgement window entirely     |
-| q08      | multi_hop     | 1.00            | 0.50          | the Velocore tier, so the hop cannot be made |
-| q33      | multi_hop     | 1.00            | 0.50          | one of the two passages                 |
-| q39      | multi_hop     | 1.00            | 0.50          | the force majeure clause                |
-| q42      | contradiction | 1.00            | 0.50          | one side of the disagreement            |
-
-q42 is the sharpest of them. It is a contradiction question, document coverage
-reports both files retrieved, and only one of the two conflicting passages
-actually reached the model. A system that holds one side of a disagreement
-cannot report a disagreement, and until this metric existed nothing in the
-numbers said so.
-
-Every one of the five is recoverable. Each missing passage is in the
-twenty-candidate pool that fusion draws from, at ranks 8, 10, 10, 15 and 17 --
-inside the window a reranker would score, and outside the five that reach the
-model. That is why the reranker is first on the roadmap, and why this metric had
-to come before it.
+What is left is not a fix but a warning. Every retrieval metric in this project
+now sits at its maximum on 38 questions, which means the golden set has stopped
+discriminating: the next change to chunking, fusion or reranking cannot be shown
+to help or hurt, because there is no headroom left to measure it in. A ceiling on
+a small sample is an exhausted test set, not a solved problem, and treating it as
+the latter is how a project starts tuning on nothing.
 
 ### 3. One of the three false refusals is arguably the harness being wrong
 
@@ -489,6 +554,10 @@ python -m src.main ask "..." --verbose
 python -m src.main eval
 python -m src.main eval --model gemini-3.6-flash
 python -m src.main index --store chroma
+python -m src.main index --rerank          # cache a reranked ordering per golden question
+python -m src.main ask "..." --rerank
+python -m src.main eval --rerank           # scores hybrid with and without reranking
+python -m src.main eval --rerank --rerank-prompt base
 ```
 
 The same pipeline in a browser, one question at a time, with the retrieval behind
@@ -530,46 +599,50 @@ system trust store instead; it is an optional import, not a dependency.
 
 In priority order, with the reason for the order.
 
-1. **A reranker over the fused candidates.** Five questions retrieve the right
-   documents and miss the passage that answers them, and two of the three false
-   refusals have that as their root cause. Fusion ranks a chunk by how many
-   lists it appears in; a cross-encoder would rank it by whether it answers the
-   question. All five missing passages are already in the twenty-candidate pool,
-   at fused ranks 8 to 17, so a reranker has something to promote rather than
-   something to find.
+1. **Harder questions, because the current set has stopped discriminating.**
+   Every retrieval metric now reads 1.000 over 38 questions. Nothing below can be
+   evaluated until there is headroom to measure it in, which is the same reason
+   growing the set from 18 to 50 was first last time.
 2. **Expand context around retrieved chunks rather than merging at index time.**
    Retrieve the small, precise chunk, then include its neighbours in the prompt.
-   Would rescue q22 as a side effect, but it treats the symptom, which is why it
-   sits behind the reranker.
+   It would have rescued q22 without a model call, and it is the cheaper answer
+   to the same class of failure the reranker now handles.
 3. **The cross-model comparison, on a key with quota.** One run, one table, and
-   the choice of generator stops being an assumption. Cheap, blocked only by
-   quota, and worth doing before any further prompt work.
+   the choice of generator stops being an assumption. Blocked only by free-tier
+   daily limits.
 4. **Judge answer quality with a model from a different provider.** Substring
-   fact checks cannot see a right figure attached to the wrong question. An LLM
-   judge can, but a model judging output from its own family has a documented
-   self-preference bias, so this needs a second provider and belongs after the
-   deterministic metrics are saturated.
-5. **Local embeddings through Ollama for a zero-quota offline path.**
-   Deliberately rejected for now: it means `torch`, hundreds of megabytes, to
-   serve a corpus of 63 chunks. It becomes worth it only if API quota turns into
-   the binding constraint.
+   fact checks cannot see a right figure attached to the wrong question. A model
+   judging output from its own family has a documented self-preference bias, so
+   this needs a second provider.
+5. **Replace the LLM reranker with a real cross-encoder, if the constraint ever
+   changes.** Cohere Rerank or a local model would be faster and steadier than a
+   generative model asked to sort. Rejected today because one needs a second key
+   from every reader and the other needs torch; both break the promise that a
+   stranger can reproduce this with a single key.
+6. **Local embeddings through Ollama for a zero-quota offline path.** Same
+   trade, same rejection, revisited only if API quota becomes the binding
+   constraint.
 
-Two items have been done, and the reasoning is left here rather than quietly
+Three items are done, and the reasoning is kept here rather than quietly
 deleted.
 
-**Growing the golden set from 18 to 50 questions** was first on this list
-because every conclusion drawn from 18 questions rested on one or two data
-points. One of them reversed when the sample grew: hybrid retrieval went from
-losing to dense-only search to beating it, once the RRF constant could be chosen
-on evidence rather than on a single question.
+**Growing the golden set from 18 to 50 questions** came first because every
+conclusion drawn from 18 rested on one or two data points. One reversed when the
+sample grew: hybrid retrieval went from losing to dense-only search to beating
+it, once the RRF constant could be chosen on evidence.
 
-**Anchor phrases** were second on the list and were promoted above the reranker.
-The original order was written before q22 was found. q22 showed that document
-recall is blind to exactly the class of failure a reranker fixes -- it scored
-1.000 on a question the system refused to answer -- so a reranker built first
-would have been a change whose effect could not be measured offline, on the
-metric this project runs in CI. Measuring first cost one stage and turned an
-invisible improvement into a number with a before and an after.
+**Anchor phrases** were promoted above the reranker mid-project. The original
+order was written before q22 was found; q22 showed document recall is blind to
+exactly the class of failure a reranker fixes, so building the reranker first
+would have produced a change whose effect could not be measured offline.
+Measuring first cost one stage and turned an invisible improvement into a number
+with a before and an after.
+
+**The reranker** then recovered all five questions whose answering passage
+fusion had missed. It also cost a contradiction question until its instructions
+were told that a passage disagreeing with another is useful for that reason --
+a wording measured against the plain version rather than assumed, and reported
+in the evaluation section as two columns rather than one.
 
 ## Licence
 
