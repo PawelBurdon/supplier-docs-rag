@@ -9,58 +9,77 @@
   },
   "top_k": 5,
   "golden_set": {
-    "questions": 50,
+    "questions": 70,
     "by_type": {
-      "factual": 20,
-      "multi_hop": 12,
+      "factual": 28,
+      "multi_hop": 18,
       "contradiction": 6,
-      "unanswerable": 12
+      "unanswerable": 15,
+      "underspecified": 3
     },
-    "answerable": 38
+    "answerable": 55
   },
   "retrieval": {
     "hybrid": {
-      "questions": 38,
-      "recall": 1.0,
-      "full_coverage": 1.0,
-      "mrr": 0.8771929824561404,
-      "anchor_recall": 0.9210526315789473,
-      "anchor_full": 0.868421052631579
+      "questions": 55,
+      "recall": 0.9666666666666667,
+      "full_coverage": 0.9272727272727272,
+      "mrr": 0.8606060606060606,
+      "anchor_recall": 0.896969696969697,
+      "anchor_full": 0.8181818181818182
     },
     "vector": {
-      "questions": 38,
-      "recall": 0.9868421052631579,
-      "full_coverage": 0.9736842105263158,
-      "mrr": 0.9166666666666667,
-      "anchor_recall": 0.881578947368421,
-      "anchor_full": 0.7894736842105263
+      "questions": 55,
+      "recall": 0.9757575757575757,
+      "full_coverage": 0.9454545454545454,
+      "mrr": 0.8939393939393939,
+      "anchor_recall": 0.8636363636363636,
+      "anchor_full": 0.7818181818181819
     },
     "keyword": {
-      "questions": 38,
-      "recall": 0.9078947368421053,
-      "full_coverage": 0.8421052631578947,
-      "mrr": 0.8114035087719298,
-      "anchor_recall": 0.8421052631578947,
-      "anchor_full": 0.7894736842105263
+      "questions": 55,
+      "recall": 0.8606060606060606,
+      "full_coverage": 0.7818181818181819,
+      "mrr": 0.7818181818181819,
+      "anchor_recall": 0.7727272727272727,
+      "anchor_full": 0.6727272727272727
     },
     "hybrid_reranked": {
+      "questions": 55,
+      "recall": 0.990909090909091,
+      "full_coverage": 0.9818181818181818,
+      "mrr": 0.9727272727272728,
+      "anchor_recall": 0.9818181818181818,
+      "anchor_full": 0.9636363636363636
+    }
+  },
+  "retrieval_by_cohort": {
+    "original": {
       "questions": 38,
-      "recall": 1.0,
-      "full_coverage": 1.0,
-      "mrr": 1.0,
-      "anchor_recall": 1.0,
-      "anchor_full": 1.0
+      "recall": 0.9780701754385964,
+      "full_coverage": 0.9473684210526315,
+      "mrr": 0.8289473684210527,
+      "anchor_recall": 0.9122807017543859,
+      "anchor_full": 0.8421052631578947
+    },
+    "extended": {
+      "questions": 17,
+      "recall": 0.9411764705882353,
+      "full_coverage": 0.8823529411764706,
+      "mrr": 0.9313725490196079,
+      "anchor_recall": 0.8627450980392156,
+      "anchor_full": 0.7647058823529411
     }
   },
   "answers": {
-    "questions": 50,
+    "questions": 70,
     "citation_validity": 1.0,
-    "refusal_accuracy": 1.0,
-    "false_refusal_rate": 0.02631578947368421,
+    "refusal_accuracy": 0.9333333333333333,
+    "false_refusal_rate": 0.01818181818181818,
     "conflict_detection": 1.0,
-    "false_conflict_rate": 0.03125,
-    "fact_coverage": 0.9736842105263158,
-    "unanswerable_questions": 12,
-    "answerable_questions": 38
+    "false_conflict_rate": 0.08695652173913043,
+    "fact_coverage": 0.9454545454545454,
+    "unanswerable_questions": 15,
+    "answerable_questions": 55
   }
 }

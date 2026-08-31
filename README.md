@@ -21,14 +21,13 @@ pip install -r requirements.txt && python -m src.main eval --retrieval-only
 |--------------------|-------|--------------------------------------|
 | document recall@5  | 0.967 | 55 answerable questions, 10 documents |
 | anchor recall@5    | 0.897 | did the answering passage make top 5 |
-| citation validity  | 1.000 | 50 answers, gemini-3.1-flash-lite    |
-| refusal accuracy   | 1.000 | 12 unanswerable questions            |
-| false refusal rate | 0.026 | 1 of 38 answerable questions refused |
+| citation validity  | 1.000 | 70 answers, gemini-3.1-flash-lite    |
+| refusal accuracy   | 0.933 | 14 of 15 unanswerable questions      |
+| false refusal rate | 0.018 | 1 of 55 answerable questions refused |
 
-The two retrieval rows are fusion alone on the current 10-document corpus. The
-three answer rows were measured with reranking on the earlier 7-document corpus
-and have not yet been re-run against the larger one; Evaluation says which
-configuration produced every number, and the golden set is still being extended.
+The two retrieval rows are fusion alone; with reranking they read 0.991 and
+0.982. Every number comes from one run over the current 10-document corpus and
+70-question golden set, and Evaluation says which configuration produced it.
 
 A Streamlit demo (`streamlit run app.py`) runs the same pipeline in a browser and
 shows, per question, which chunks each retrieval path found and how the fusion
@@ -465,25 +464,28 @@ roadmap.
 
 These metrics run in CI with no API key.
 
-### Answers, gemini-3.1-flash-lite, 50 questions
+### Answers, gemini-3.1-flash-lite with reranking, 70 questions
 
-| metric              | value | meaning                                              |
-|---------------------|-------|------------------------------------------------------|
-| citation validity   | 1.000 | every citation maps to a passage the model was given |
-| refusal accuracy    | 1.000 | unanswerable questions correctly refused (n=12)      |
-| false refusal rate  | 0.079 | answerable questions wrongly refused (3 of 38)       |
-| conflict detection  | 1.000 | contradiction questions flagged (n=6)                |
-| false conflict rate | 0.031 | other answerable questions flagged (1 of 32)         |
-| fact coverage       | 0.921 | answers containing every expected figure (35 of 38)  |
+| metric              | value | measured over                                    |
+|---------------------|-------|--------------------------------------------------|
+| citation validity   | 1.000 | 70 answers                                        |
+| refusal accuracy    | 0.933 | 15 unanswerable questions, 14 refused             |
+| false refusal rate  | 0.018 | 55 answerable questions, 1 refused                |
+| conflict detection  | 1.000 | 6 contradiction questions                         |
+| false conflict rate | 0.087 | 46 other answerable questions, 4 flagged          |
+| fact coverage       | 0.945 | 55 answerable questions, every expected figure    |
 
-Not one fabricated citation in 50 answers, and not one unanswerable question
-answered — including the four traps built to be answerable-looking: a minimum
-order value that exists for the other supplier, an OTIF figure for the quarter
-after the record ends, a customs code the FAQ explicitly refuses, and a
-termination threshold whose plausible wrong answer (1.5 percent) is sitting in
-the corpus attached to a different consequence.
+Retrieval under the same configuration: document recall 0.991, anchor recall
+0.982, all anchors 0.964, MRR 0.973 over 55 answerable questions. Reranking
+recovered eight questions whose answering passage fusion had missed, including
+both of the hardest new ones -- the three-document question and the first
+underspecified one -- and lost none.
 
-The three false refusals are the interesting part, and they are dissected below.
+Every count is on the table on purpose. Refusal accuracy over 15 questions and
+over 4 are different claims with the same name, and the earlier version of this
+README reported the second one.
+
+The three failures behind those numbers are all worth more than the numbers.
 
 ### Cross-model comparison: attempted, not obtained
 
@@ -601,28 +603,96 @@ like the right answer and is superseded, and it does so because near-duplicate
 revisions of the same document are what a document library actually contains.
 Before these documents existed, both questions scored 1.000.
 
-### 4. One of the three false refusals is arguably the harness being wrong
+### 4. Multi-hop questions retrieve every passage they need, one at a time
 
-q36 asks which supplier is approved to deliver WHL-CRB carbon wheelsets. The
-answer is neither. The system said:
+Multi-hop is the weakest type in the current run: 0.935 document recall but only
+0.61 full anchor coverage across 18 questions. The two numbers together say
+something precise. The right documents come back. The passages that answer the
+question are individually reachable -- measured one at a time, each of them
+ranks inside the candidate pool. What fails is fitting all of them into five
+chunks at once.
 
-> The provided documents do not state that any supplier is approved to deliver
-> WHL-CRB carbon wheelsets. Pedalworks Manufacturing Ltd is explicitly restricted
-> from providing carbon wheelsets [1].
+q58 is the clearest case. It asks how bad Velocore's worst quarter was and what
+would happen if that repeated three quarters running, which needs the supplier
+record for the figure, the SLA for the escalation and the framework agreement
+for the contractual consequence. Retrieval returns the framework agreement, the
+withdrawn SLA and the Velocore record: two of the three needed documents, plus
+a superseded version of the third.
 
-That is correct, useful, and cited. It is scored as a false refusal because the
-golden set types the question as answerable and the model set `refused` to true.
-The same disagreement shows up in the false conflict rate: q09 is scored as a
-false positive for flagging that the SLA and the FAQ disagree about the penalty
-rate, which, in the passages it was given, they do.
+This is the failure that context expansion, not reranking, is aimed at. A
+reranker chooses better among five slots; it cannot make six passages fit into
+five. Retrieving a small precise chunk and pulling in its neighbours would give
+each hop its own space, which is why that item sits next on the roadmap now that
+the metric can finally see the problem.
 
-Both are metric-definition problems rather than system problems, and both are
-left as they are. Adjusting a definition after seeing which questions it marks
-wrong is how an evaluation stops being one. The honest reading of the headline
-numbers is therefore: of three false refusals, two are a real retrieval failure
-with a single root cause, and one is a scoring argument.
+### 5. The model refuses a question the corpus answers, because the document says not to quote it
 
-### 5. Everything here rests on 93 chunks of invented text
+q55 asks what OTIF target applied to suppliers in 2023. The withdrawn SLA states
+it -- 94 percent for Tier A, 88 for Tier B -- and states its own period of force,
+February 2022 to January 2024. Both facts are in the retrieved passages. The
+system refused:
+
+> The provided documents do not state the on-time in-full target that applied to
+> suppliers in 2023. The withdrawn agreement [1][2] and the current agreement [3]
+> provide different targets, but neither document specifies which was in effect
+> during 2023.
+
+The second sentence is false, and it is false in an interesting way. The
+withdrawn document opens with a warning written into the corpus on purpose --
+"do not quote any figure from this document as current" -- and the model appears
+to have generalised it from "not current" to "not usable", then failed to read
+the date range that answers the question. This is the only false refusal in 55
+answerable questions, and it is a reasoning failure rather than a retrieval one:
+everything needed was in front of it.
+
+It is also the first failure this project has found that neither retrieval
+metrics nor citation checking can see. The answer is grounded, its citations are
+valid, and it is wrong.
+
+### 6. The trap worked, and the metric caught the wrong thing
+
+q63 asks what repacking costs per pallet. The packaging specification prices
+relabelling at EUR 45 per pallet and says repacking is charged at cost, with no
+rate, so the question is unanswerable and the trap is the adjacent number. The
+system answered:
+
+> Repacking is charged at cost [1].
+
+It did not take the bait: no EUR 45, no invented rate, one valid citation, and a
+true statement. The harness scores it as a failed refusal, which is why refusal
+accuracy reads 0.933 rather than 1.000, and that score is defensible only if you
+believe the only correct response was "not stated".
+
+That is the third question in this golden set where the metric and a reasonable
+reader disagree, after q36 and q09. All three are left scored as they are.
+Adjusting a definition after seeing which questions it marks wrong is how an
+evaluation stops being one, and three disputed cases out of seventy is itself a
+number worth reporting.
+
+### 7. Underspecified questions retrieve both contracts and answer as though there were one
+
+q51 asks what the distributor can do when a supplier misses the OTIF target for
+three quarters, without saying which supplier. Reranking retrieves everything
+needed: both framework agreements and the SLA, all three anchors present. The
+answer:
+
+> Failure to meet the on-time delivery threshold for three consecutive quarters
+> constitutes a material breach of the contract [1][2]. Under the terms of the
+> agreements, either party may terminate the contract immediately if a material
+> breach is not remedied within 30 days [1][2].
+
+"The agreements", plural, cited from both -- and never a word that they are two
+different contracts with two different suppliers and two different notice
+periods. The ambiguity is retrieved and then flattened. Both underspecified
+questions with figures that differ score 0 on fact coverage for the same reason.
+
+This is what the type was added to measure, and it is measuring it: the
+retrieval side is solved and the answering side is not. The fix is a prompt
+change -- the system prompt requires surfacing disagreement between sources, and
+says nothing about two sources that are both right for different subjects -- and
+it is deliberately not made in the same commit that reports the finding.
+
+### 8. Everything here rests on 93 chunks of invented text
 
 Ten documents, one corpus, one language, one domain, all written by the same
 author as the system that reads them. The contradictions are planted, so the
@@ -719,50 +789,47 @@ system trust store instead; it is an optional import, not a dependency.
 
 In priority order, with the reason for the order.
 
-1. **Harder questions, because the current set has stopped discriminating.**
-   Every retrieval metric now reads 1.000 over 38 questions. Nothing below can be
-   evaluated until there is headroom to measure it in, which is the same reason
-   growing the set from 18 to 50 was first last time.
-2. **Expand context around retrieved chunks rather than merging at index time.**
-   Retrieve the small, precise chunk, then include its neighbours in the prompt.
-   It would have rescued q22 without a model call, and it is the cheaper answer
-   to the same class of failure the reranker now handles.
+1. **Expand context around retrieved chunks.** Multi-hop is the weakest type,
+   0.61 full anchor coverage before reranking, and its failure has a shape: the
+   passages are individually reachable and do not fit into five slots together.
+   A reranker chooses better among five; it cannot make six fit. Retrieving the
+   precise chunk and pulling in its neighbours gives each hop its own space.
+2. **Teach the answerer about two sources that are both right.** The system
+   prompt requires surfacing disagreement between sources and says nothing about
+   two contracts that are each correct for a different supplier. Underspecified
+   questions now retrieve both agreements and the answer flattens them into
+   "the agreements", scoring zero on fact coverage. The measurement exists, the
+   fix is one paragraph, and the two are deliberately not in the same commit.
 3. **The cross-model comparison, on a key with quota.** One run, one table, and
-   the choice of generator stops being an assumption. Blocked only by free-tier
-   daily limits.
-4. **Judge answer quality with a model from a different provider.** Substring
-   fact checks cannot see a right figure attached to the wrong question. A model
-   judging output from its own family has a documented self-preference bias, so
-   this needs a second provider.
+   the choice of generator stops being an assumption.
+4. **Judge answer quality with a model from a different provider.** q55 is the
+   argument: a grounded answer with valid citations and a false sentence in it.
+   No deterministic metric here can see that, and a model from the same family
+   judging its own output has a documented self-preference bias.
 5. **Replace the LLM reranker with a real cross-encoder, if the constraint ever
-   changes.** Cohere Rerank or a local model would be faster and steadier than a
-   generative model asked to sort. Rejected today because one needs a second key
-   from every reader and the other needs torch; both break the promise that a
-   stranger can reproduce this with a single key.
+   changes.** Faster and steadier than a generative model asked to sort.
+   Rejected today because it needs a second key from every reader, or torch.
 6. **Local embeddings through Ollama for a zero-quota offline path.** Same
-   trade, same rejection, revisited only if API quota becomes the binding
-   constraint.
+   trade, revisited only if API quota becomes the binding constraint.
 
-Three items are done, and the reasoning is kept here rather than quietly
-deleted.
+Four items are done, and the reasoning is kept rather than deleted.
 
-**Growing the golden set from 18 to 50 questions** came first because every
-conclusion drawn from 18 rested on one or two data points. One reversed when the
-sample grew: hybrid retrieval went from losing to dense-only search to beating
-it, once the RRF constant could be chosen on evidence.
+**Growing the golden set from 18 to 50** came first because every conclusion
+drawn from 18 rested on one or two data points. One reversed when the sample
+grew.
 
-**Anchor phrases** were promoted above the reranker mid-project. The original
-order was written before q22 was found; q22 showed document recall is blind to
-exactly the class of failure a reranker fixes, so building the reranker first
-would have produced a change whose effect could not be measured offline.
-Measuring first cost one stage and turned an invisible improvement into a number
-with a before and an after.
+**Anchor phrases** were promoted above the reranker mid-project, after q22
+showed document recall is blind to the class of failure a reranker fixes.
 
-**The reranker** then recovered all five questions whose answering passage
-fusion had missed. It also cost a contradiction question until its instructions
-were told that a passage disagreeing with another is useful for that reason --
-a wording measured against the plain version rather than assumed, and reported
-in the evaluation section as two columns rather than one.
+**The reranker** recovered every question whose answering passage fusion had
+missed, and cost a contradiction question until its instructions were told that
+a passage disagreeing with another is useful for that reason.
+
+**Enlarging the corpus and the golden set** followed from the reranker working
+too well: five retrieval metrics at 1.000 over 38 questions is an exhausted test
+set. Three documents and twenty questions later, hybrid retrieval reads 0.967
+document recall before reranking and 0.991 after, and the failures above are
+ones no earlier version of this project could have found.
 
 ## Licence
 
