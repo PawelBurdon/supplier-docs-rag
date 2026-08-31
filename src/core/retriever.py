@@ -134,6 +134,7 @@ class Retriever:
         top_k: int = DEFAULT_TOP_K,
         pool: int = CANDIDATE_POOL,
         rrf_k: int = RRF_K,
+        reranker=None,
     ) -> None:
         from rank_bm25 import BM25Okapi
 
@@ -143,6 +144,11 @@ class Retriever:
         self.top_k = top_k
         self.pool = pool
         self.rrf_k = rrf_k
+        # Optional. When present, fusion produces the whole candidate pool and
+        # the reranker chooses the k that reach the caller. It lives here rather
+        # than in the answerer so that the CLI, the evaluation harness and the
+        # demo all get the same pipeline without knowing it changed.
+        self.reranker = reranker
         self._by_id = {chunk.chunk_id: chunk for chunk in self.chunks}
         # BM25 indexes index_text, the same string the embedder saw, so the two
         # paths are ranking identical content and a disagreement is a real
@@ -166,7 +172,14 @@ class Retriever:
 
         vector_hits = self._vector_candidates(question) if mode != "keyword" else []
         keyword_hits = self._keyword_candidates(question) if mode != "vector" else []
-        return self._fuse(vector_hits, keyword_hits, k)
+        if self.reranker is None:
+            return self._fuse(vector_hits, keyword_hits, k)
+
+        # With a reranker, fusion stops being the final word and becomes the
+        # shortlist: it decides which candidates are considered, the reranker
+        # decides which are shown.
+        candidates = self._fuse(vector_hits, keyword_hits, self.pool)
+        return self.reranker.rerank(question, candidates, top_k=k)
 
     def _vector_candidates(self, question: str) -> list[tuple[str, float]]:
         query_vector = self.embedder.embed_query(question)
